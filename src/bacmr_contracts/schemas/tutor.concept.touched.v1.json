@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tutor.concept.touched.v1.json",
+  "type": "object",
+  "required": ["session_id", "student_id", "chapter_id", "concepts"],
+  "properties": {
+    "session_id": {"type": "string", "format": "uuid"},
+    "student_id": {"type": "string"},
+    "chapter_id": {"type": "string"},
+    "lesson_id": {"type": ["string", "null"]},
+    "concepts": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "content.document.ingested.v1.json",
+  "type": "object",
+  "required": ["document_id", "subject_id", "language", "chunk_count", "source"],
+  "properties": {
+    "document_id": {"type": "string", "format": "uuid"},
+    "subject_id": {"type": "string"},
+    "language": {"enum": ["ar", "fr", "en"]},
+    "chunk_count": {"type": "integer", "minimum": 0},
+    "source": {"enum": ["curriculum", "user_upload"]}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tutor.message.created.v1.json",
+  "type": "object",
+  "required": ["session_id", "message_id", "student_id", "role", "language", "chapter_id"],
+  "properties": {
+    "session_id": {"type": "string", "format": "uuid"},
+    "message_id": {"type": "string", "format": "uuid"},
+    "student_id": {"type": "string"},
+    "role": {"enum": ["student", "tutor"]},
+    "language": {"enum": ["ar", "fr", "en"]},
+    "chapter_id": {"type": ["string", "null"]},
+    "scope_escaped_to": {"enum": ["subject", "global", null]}
+  },
+  "additionalProperties": false
+}

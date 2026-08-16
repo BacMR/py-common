@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tutor.session.started.v1.json",
+  "type": "object",
+  "required": ["session_id", "student_id", "subject_id"],
+  "properties": {
+    "session_id": {"type": "string", "format": "uuid"},
+    "student_id": {"type": "string"},
+    "subject_id": {"type": "string"},
+    "chapter_id": {"type": ["string", "null"]}
+  },
+  "additionalProperties": false
+}
