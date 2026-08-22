@@ -44,10 +44,18 @@ async def test_full_round_trip():
         await asyncio.sleep(0.2)
 
     assert [e["event_id"] for e in received] == [str(eid)]
-    async with eng.connect() as conn:
-        n = (await conn.execute(sa.text(
-            "SELECT count(*) FROM content.processed_events WHERE event_id = :e"
-        ), {"e": str(eid)})).scalar()
+    # the consumer stamps processed_events in a separate transaction AFTER the
+    # handler returns — poll for the row like we polled for delivery, or a
+    # loaded host loses the commit race and reads 0
+    stamp_deadline = asyncio.get_event_loop().time() + 10
+    n = 0
+    while n == 0 and asyncio.get_event_loop().time() < stamp_deadline:
+        async with eng.connect() as conn:
+            n = (await conn.execute(sa.text(
+                "SELECT count(*) FROM content.processed_events WHERE event_id = :e"
+            ), {"e": str(eid)})).scalar()
+        if n == 0:
+            await asyncio.sleep(0.2)
     assert n == 1
 
     await consumer.stop()

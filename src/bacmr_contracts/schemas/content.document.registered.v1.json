@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "content.document.registered.v1.json",
+  "type": "object",
+  "required": ["document_id", "subject_id", "language", "checksum_sha256"],
+  "properties": {
+    "document_id": {"type": "string", "format": "uuid"},
+    "subject_id": {"type": "string"},
+    "language": {"enum": ["ar", "fr", "en"]},
+    "checksum_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": false
+}
