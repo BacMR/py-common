@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import httpx
@@ -183,6 +184,83 @@ async def test_backoff_gives_up_after_max_attempts(monkeypatch):
         await client.chat_json("internal-batch", "sys", "u", SCHEMA)
     await client.close()
     assert n == 5  # MAX_HTTP_ATTEMPTS
+
+
+def _sse(*chunks: str, done: bool = True) -> bytes:
+    body = "".join(f"data: {c}\n\n" for c in chunks)
+    if done:
+        body += "data: [DONE]\n\n"
+    return body.encode()
+
+
+async def test_chat_stream_yields_content_deltas_in_order():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=_sse(
+            json.dumps({"choices": [{"delta": {"content": "Hel"}}]}),
+            json.dumps({"choices": [{"delta": {"content": "lo"}}]}),
+        ), headers={"content-type": "text/event-stream"})
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    out = [d async for d in client.chat_stream("student-chat", [{"role": "user", "content": "hi"}])]
+    await client.close()
+    assert out == ["Hel", "lo"]
+
+
+async def test_chat_stream_skips_done_and_empty_deltas():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=_sse(
+            json.dumps({"choices": [{"delta": {"role": "assistant"}}]}),
+            json.dumps({"choices": [{"delta": {"content": "ok"}}]}),
+            json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}]}),
+        ), headers={"content-type": "text/event-stream"})
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    out = [d async for d in client.chat_stream("student-chat", [{"role": "user", "content": "hi"}])]
+    await client.close()
+    assert out == ["ok"]
+
+
+async def test_chat_stream_sends_stream_true_and_model():
+    seen = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, content=_sse(), headers={"content-type": "text/event-stream"})
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    [d async for d in client.chat_stream("student-chat", [{"role": "user", "content": "hi"}])]
+    await client.close()
+    assert seen["model"] == "student-chat"
+    assert seen["stream"] is True
+
+
+async def test_chat_stream_raises_on_server_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, content=b"boom")
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with pytest.raises(httpx.HTTPStatusError):
+        [d async for d in client.chat_stream("student-chat", [{"role": "user", "content": "hi"}])]
+    await client.close()
+
+
+class _HangingStream:
+    async def __aenter__(self):
+        await asyncio.sleep(10)
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+async def test_chat_stream_times_out_via_asyncio_timeout(monkeypatch):
+    client = LLMClient(_settings())
+    monkeypatch.setattr(client._http, "stream", lambda *a, **k: _HangingStream())
+
+    with pytest.raises(TimeoutError):
+        async for _ in client.chat_stream(
+                "student-chat", [{"role": "user", "content": "hi"}], timeout_s=0.01):
+            pass
+    await client.close()
 
 
 async def test_non_retryable_status_raises_immediately():

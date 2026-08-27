@@ -15,6 +15,7 @@ import asyncio
 import base64
 import json
 import random
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -106,6 +107,37 @@ class LLMClient:
                 last_err, last_raw = exc, raw
         raise LLMOutputError(
             f"model {model} returned invalid JSON three times: {last_err}")
+
+    async def chat_stream(self, model: str, messages: list[dict],
+                          timeout_s: float = 120.0) -> AsyncIterator[str]:
+        """Streamed chat completion for the student-facing model alias.
+
+        Unlike `chat_json`, this is a SINGLE attempt: `_post_with_backoff`'s
+        retry ladder doesn't apply to a stream — retrying after tokens have
+        already reached the student would duplicate/garble what they've
+        seen. The whole call (connect through last chunk) is bounded by
+        `timeout_s` via `asyncio.timeout`, not just the connect phase, since
+        student-chat is user-facing and must not hang the turn indefinitely.
+        `timeout_s` is caller-supplied rather than read off `self._settings`
+        because this client is shared/duck-typed across services (spec:
+        extracted in Task 2) and only the tutor service's Settings carries
+        `chat_timeout_s`.
+        """
+        body = {"model": model, "messages": messages, "stream": True}
+        async with asyncio.timeout(timeout_s):
+            async with self._http.stream(
+                    "POST", "/v1/chat/completions", json=body) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    data = line[len("data:"):].strip()
+                    if not data or data == "[DONE]":
+                        continue
+                    chunk = json.loads(data)
+                    delta = chunk["choices"][0]["delta"].get("content")
+                    if delta:
+                        yield delta
 
     async def embed(self, texts: list[str], dimensions: int = 1536,
                     model: str | None = None) -> list[list[float]]:
