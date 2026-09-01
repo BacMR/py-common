@@ -41,7 +41,9 @@ class LLMClient:
             headers={"Authorization": f"Bearer {settings.model_gateway_key}"})
 
     async def _post_with_backoff(self, path: str, json: dict,
-                                 max_attempts: int = MAX_HTTP_ATTEMPTS) -> httpx.Response:
+                                 max_attempts: int = MAX_HTTP_ATTEMPTS,
+                                 backoff_schedule: tuple[float, ...] | None = None,
+                                 ) -> httpx.Response:
         """POST with exponential backoff on transient failures.
 
         A single 429 used to abort a whole stage run (pilot follow-up #1);
@@ -51,7 +53,19 @@ class LLMClient:
         `max_attempts` defaults to the full ladder for batch/ingestion callers;
         user-facing paths (e.g. the rerank fallback) pass a smaller cap so a
         dead upstream can't ride the full multi-second backoff.
+
+        `backoff_schedule`, when given, REPLACES the default 1,2,4,8s
+        exponential ladder with explicit per-attempt delays (still jittered)
+        and forces `max_attempts` to `len(backoff_schedule) + 1` regardless of
+        the `max_attempts` argument — the wait-not-fallback policy (Task 3):
+        subscription-only ingestion callers pass a long wait ladder (minutes,
+        not seconds) so a 429-heavy bulk run WAITS for the subscription rate
+        limit window to reset rather than falling through to a metered model.
+        `None` (the default) leaves every existing caller's behavior
+        byte-identical to before this parameter existed.
         """
+        if backoff_schedule:
+            max_attempts = len(backoff_schedule) + 1
         last_exc: Exception | None = None
         for attempt in range(max_attempts):
             try:
@@ -65,12 +79,14 @@ class LLMClient:
                 last_exc = httpx.HTTPStatusError(
                     f"HTTP {resp.status_code}", request=resp.request, response=resp)
             if attempt < max_attempts - 1:
-                delay = _BACKOFF_BASE * (2 ** attempt)
+                delay = (backoff_schedule[attempt] if backoff_schedule
+                        else _BACKOFF_BASE * (2 ** attempt))
                 await asyncio.sleep(delay * (1 + random.random() * 0.25))
         raise last_exc
 
     async def chat_json(self, model: str, system: str, user: str, schema: dict,
-                        images: list[bytes] | None = None) -> dict:
+                        images: list[bytes] | None = None,
+                        backoff_schedule: tuple[float, ...] | None = None) -> dict:
         content: str | list = user
         if images:
             content = [{"type": "text", "text": user}] + [
@@ -94,7 +110,8 @@ class LLMClient:
                         "That reply was rejected by the JSON validator: "
                         f"{str(last_err)[:500]}\n"
                         "Reply again with corrected JSON only."}]}
-            resp = await self._post_with_backoff("/v1/chat/completions", attempt_body)
+            resp = await self._post_with_backoff("/v1/chat/completions", attempt_body,
+                                                 backoff_schedule=backoff_schedule)
             # content can legitimately be null (safety-filter refusals do this) —
             # coerce to "" so it fails as a normal JSONDecodeError and gets the
             # corrective-retry treatment instead of an uncaught TypeError
@@ -140,7 +157,8 @@ class LLMClient:
                         yield delta
 
     async def embed(self, texts: list[str], dimensions: int = 1536,
-                    model: str | None = None) -> list[list[float]]:
+                    model: str | None = None,
+                    backoff_schedule: tuple[float, ...] | None = None) -> list[list[float]]:
         import math
 
         out: list[list[float]] = []
@@ -148,7 +166,8 @@ class LLMClient:
             batch = texts[i:i + 64]
             resp = await self._post_with_backoff("/v1/embeddings", {
                 "model": model or self._settings.embedding_model,
-                "input": batch, "dimensions": dimensions})
+                "input": batch, "dimensions": dimensions},
+                backoff_schedule=backoff_schedule)
             data = sorted(resp.json()["data"], key=lambda d: d["index"])
             for item in data:
                 v = item["embedding"]

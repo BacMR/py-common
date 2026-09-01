@@ -263,6 +263,83 @@ async def test_chat_stream_times_out_via_asyncio_timeout(monkeypatch):
     await client.close()
 
 
+async def test_backoff_schedule_sleeps_per_schedule_then_raises(monkeypatch):
+    # a custom schedule replaces the default exponential ladder: with an
+    # always-429 transport, the client sleeps exactly the schedule's values
+    # (not the default 1,2,4,8) then gives up once the schedule is exhausted
+    sleeps: list[float] = []
+
+    async def fake_sleep(s):
+        sleeps.append(s)
+
+    monkeypatch.setattr("bacmr_common.llm.asyncio.sleep", fake_sleep)
+    monkeypatch.setattr("bacmr_common.llm.random.random", lambda: 0.0)  # strip jitter
+    n = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal n
+        n += 1
+        return httpx.Response(429, json={"error": "rate limited"})
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with pytest.raises(httpx.HTTPStatusError):
+        await client.chat_json("internal-batch", "sys", "u", SCHEMA,
+                               backoff_schedule=(1.0, 2.0))
+    await client.close()
+    assert n == 3  # schedule (2 entries) + 1 final failing attempt
+    assert sleeps == [1.0, 2.0]
+
+
+async def test_backoff_schedule_none_keeps_default_ladder(monkeypatch):
+    # byte-identical default: omitting backoff_schedule must behave exactly
+    # like before this param existed — max_attempts stays MAX_HTTP_ATTEMPTS
+    # and delays follow the 1,2,4,8s exponential ladder
+    sleeps: list[float] = []
+
+    async def fake_sleep(s):
+        sleeps.append(s)
+
+    monkeypatch.setattr("bacmr_common.llm.asyncio.sleep", fake_sleep)
+    monkeypatch.setattr("bacmr_common.llm.random.random", lambda: 0.0)  # strip jitter
+    n = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal n
+        n += 1
+        return httpx.Response(503, json={"error": "down"})
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with pytest.raises(httpx.HTTPStatusError):
+        await client.chat_json("internal-batch", "sys", "u", SCHEMA)
+    await client.close()
+    assert n == 5  # MAX_HTTP_ATTEMPTS, unchanged
+    assert sleeps == [1.0, 2.0, 4.0, 8.0]
+
+
+async def test_embed_accepts_backoff_schedule(monkeypatch):
+    sleeps: list[float] = []
+
+    async def fake_sleep(s):
+        sleeps.append(s)
+
+    monkeypatch.setattr("bacmr_common.llm.asyncio.sleep", fake_sleep)
+    monkeypatch.setattr("bacmr_common.llm.random.random", lambda: 0.0)
+    n = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal n
+        n += 1
+        if n < 2:
+            return httpx.Response(429, json={"error": "rate limited"})
+        return httpx.Response(200, json={"data": [{"index": 0, "embedding": [1.0, 0.0]}]})
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    out = await client.embed(["hi"], dimensions=2, backoff_schedule=(3.0,))
+    await client.close()
+    assert out == [[1.0, 0.0]]
+    assert sleeps == [3.0]
+
+
 async def test_non_retryable_status_raises_immediately():
     n = 0
 
