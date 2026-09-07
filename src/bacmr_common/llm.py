@@ -21,6 +21,8 @@ from typing import Any
 import httpx
 from jsonschema import Draft202012Validator, ValidationError
 
+from bacmr_common.usage import gateway_body, new_call_id
+
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 MAX_HTTP_ATTEMPTS = 5
 _BACKOFF_BASE = 1.0   # 1, 2, 4, 8 seconds (+ up to 25% jitter)
@@ -36,6 +38,7 @@ class LLMClient:
         # `settings`: any object with `.model_gateway_url` / `.model_gateway_key`
         # (and `.embedding_model` for `embed`) — duck-typed, no service import.
         self._settings = settings
+        self._service = getattr(settings, "usage_service", settings.__class__.__module__.split(".")[0])
         self._http = httpx.AsyncClient(
             base_url=settings.model_gateway_url, transport=transport, timeout=120,
             headers={"Authorization": f"Bearer {settings.model_gateway_key}"})
@@ -67,9 +70,11 @@ class LLMClient:
         if backoff_schedule:
             max_attempts = len(backoff_schedule) + 1
         last_exc: Exception | None = None
+        call_id = new_call_id()
         for attempt in range(max_attempts):
             try:
-                resp = await self._http.post(path, json=json)
+                resp = await self._http.post(path, json=gateway_body(
+                    json, service=self._service, call_id=call_id, attempt=attempt + 1))
             except httpx.TransportError as exc:
                 last_exc = exc
             else:
@@ -140,7 +145,9 @@ class LLMClient:
         extracted in Task 2) and only the tutor service's Settings carries
         `chat_timeout_s`.
         """
-        body = {"model": model, "messages": messages, "stream": True}
+        body = gateway_body({"model": model, "messages": messages, "stream": True,
+                             "stream_options": {"include_usage": True}},
+                            service=self._service, call_id=new_call_id(), attempt=1)
         async with asyncio.timeout(timeout_s):
             async with self._http.stream(
                     "POST", "/v1/chat/completions", json=body) as resp:
@@ -152,6 +159,8 @@ class LLMClient:
                     if not data or data == "[DONE]":
                         continue
                     chunk = json.loads(data)
+                    if not chunk.get("choices"):
+                        continue  # final usage-only frame has an empty choices list
                     delta = chunk["choices"][0]["delta"].get("content")
                     if delta:
                         yield delta

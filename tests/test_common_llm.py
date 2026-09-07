@@ -353,3 +353,70 @@ async def test_non_retryable_status_raises_immediately():
         await client.chat_json("internal-batch", "sys", "u", SCHEMA)
     await client.close()
     assert n == 1
+
+
+async def test_usage_identity_is_isolated_between_concurrent_requests():
+    from bacmr_common.usage import usage_context
+    bodies = []
+    async def handler(request):
+        await asyncio.sleep(0)
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json=_completion('{"answer":"ok"}'))
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    async def run(student):
+        with usage_context(consumption="user", actor=student, operation="tutor",
+                           request_id=student+"-turn"):
+            await client.chat_json("internal-batch", "s", "q", SCHEMA)
+    await asyncio.gather(run("alice"), run("bob"))
+    await client.chat_json("ingest-text", "s", "q", SCHEMA)
+    assert {b["user"] for b in bodies[:2]} == {"alice", "bob"}
+    for b in bodies[:2]:
+        assert "consumption:user" in b["metadata"]["tags"]
+        assert b["metadata"]["request_id"] == b["user"]+"-turn"
+    assert bodies[2]["user"].startswith("system:")
+    assert "consumption:system" in bodies[2]["metadata"]["tags"]
+    await client.close()
+
+
+async def test_stream_requests_usage_and_handles_usage_only_final_frame():
+    seen = []
+    def handler(request):
+        seen.append(json.loads(request.content))
+        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"hello"}}]}\n\n'
+            'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":1}}\n\n'
+            'data: [DONE]\n\n')
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    assert [x async for x in client.chat_stream("student-chat", [])] == ["hello"]
+    assert seen[0]["stream_options"] == {"include_usage": True}
+    assert "metadata" in seen[0]
+    await client.close()
+
+
+async def test_retry_attempts_and_embeddings_have_accounting_metadata(monkeypatch):
+    async def no_sleep(_): pass
+    monkeypatch.setattr("bacmr_common.llm.asyncio.sleep", no_sleep)
+    bodies = []
+    def handler(request):
+        bodies.append(json.loads(request.content))
+        if len(bodies) == 1:
+            return httpx.Response(429)
+        return httpx.Response(200, json={"data":[{"index":0,"embedding":[1,0]}]})
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    await client.embed(["text"])
+    assert [b["metadata"]["attempt"] for b in bodies] == [1, 2]
+    assert bodies[0]["metadata"]["call_id"] == bodies[1]["metadata"]["call_id"]
+    assert "consumption:system" in bodies[1]["metadata"]["tags"]
+    await client.close()
+
+
+def test_accounting_fields_use_litellm_persisted_metadata_container():
+    from bacmr_common.usage import gateway_body, usage_context
+    with usage_context(consumption="system", actor="system:ingestion", job_id="job-1",
+                       document_id="book-1", stage="figures"):
+        body = gateway_body({}, service="knowledge", call_id="call-1", attempt=2)
+    saved = body["metadata"]["spend_logs_metadata"]
+    assert saved["job_id"] == "job-1"
+    assert saved["document_id"] == "book-1"
+    assert saved["stage"] == "figures"
+    assert saved["call_id"] == "call-1"
+    assert saved["attempt"] == 2
