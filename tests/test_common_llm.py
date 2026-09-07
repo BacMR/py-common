@@ -409,6 +409,26 @@ async def test_retry_attempts_and_embeddings_have_accounting_metadata(monkeypatc
     await client.close()
 
 
+async def test_service_tag_prefers_settings_usage_service_over_module_fallback():
+    # PR #43 review Minor-2: the module-package fallback produced
+    # `service:test_common_llm`-style tags; an explicit `usage_service` on the
+    # settings object (now set on both real Settings classes) must win.
+    class _NamedSettings(_GatewaySettings):
+        usage_service = "knowledge"
+
+    bodies = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json=_completion('{"answer": "ok"}'))
+
+    client = LLMClient(_NamedSettings(), transport=httpx.MockTransport(handler))
+    await client.chat_json("internal-batch", "sys", "u", SCHEMA)
+    await client.close()
+    assert "service:knowledge" in bodies[0]["metadata"]["tags"]
+    assert bodies[0]["metadata"]["service"] == "knowledge"
+
+
 def test_accounting_fields_use_litellm_persisted_metadata_container():
     from bacmr_common.usage import gateway_body, usage_context
     with usage_context(consumption="system", actor="system:ingestion", job_id="job-1",
