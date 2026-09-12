@@ -38,6 +38,17 @@ def usage_context(**fields):
         _context.reset(token)
 
 
+def current_usage_field(name: str) -> str | None:
+    """Read one field out of the ambient accounting context.
+
+    Lets a stage stamp its own DB rows (e.g. content.enrich_skips.run_id) with
+    the SAME run identifier that reaches LiteLLM_SpendLogs as
+    metadata->spend_logs_metadata->>'job_id', so ledger spend and what the run
+    actually produced can be joined without guessing at time windows.
+    """
+    return (_context.get() or {}).get(name)
+
+
 def gateway_body(body: dict, *, service: str, call_id: str, attempt: int) -> dict:
     ctx = dict(_context.get() or {})
     consumption = ctx.get("consumption", "system")
