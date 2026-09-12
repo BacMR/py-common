@@ -21,11 +21,58 @@ from typing import Any
 import httpx
 from jsonschema import Draft202012Validator, ValidationError
 
-from bacmr_common.usage import gateway_body, new_call_id
+from bacmr_common.usage import estimate_tokens, gateway_body, new_call_id, record_usage
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 MAX_HTTP_ATTEMPTS = 5
 _BACKOFF_BASE = 1.0   # 1, 2, 4, 8 seconds (+ up to 25% jitter)
+
+
+def _body_chars(body: dict) -> int:
+    """Characters this request sends the model — the input half of the
+    last-resort estimate used only when a reply carries no `usage` block.
+    Base64 image parts are deliberately NOT counted: an image's token cost is
+    a provider-specific tiling function of its pixels, and its base64 length
+    would inflate the guess by orders of magnitude. A vision call without
+    provider usage is therefore an under-estimate, which is exactly why the
+    tally records it as an ESTIMATE from an UNMEASURED call rather than a
+    number anyone should trust."""
+    chars = 0
+    for msg in body.get("messages") or []:
+        content = msg.get("content")
+        if isinstance(content, str):
+            chars += len(content)
+        elif isinstance(content, list):
+            chars += sum(len(part.get("text", "")) for part in content
+                         if isinstance(part, dict) and part.get("type") == "text")
+    payload_input = body.get("input")
+    if isinstance(payload_input, str):
+        chars += len(payload_input)
+    elif isinstance(payload_input, list):
+        chars += sum(len(t) for t in payload_input if isinstance(t, str))
+    return chars
+
+
+def _reply_chars(payload: dict) -> int:
+    if not isinstance(payload, dict):
+        return 0
+    return sum(len((choice.get("message") or {}).get("content") or "")
+               for choice in payload.get("choices") or [] if isinstance(choice, dict))
+
+
+def _record_call_usage(request_body: dict, resp: httpx.Response) -> None:
+    """Fold ONE completed gateway call into the caller's `usage_tally` (a
+    no-op when there is none). Called per HTTP attempt, not per logical call:
+    a corrective JSON retry or a post-429 retry is a second call the provider
+    really did serve, and dropping it is how "200k tokens" ends up meaning
+    millions."""
+    try:
+        payload = resp.json()
+    except ValueError:  # non-JSON body — nothing to measure, nothing to fake
+        payload = {}
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    record_usage(usage, estimate=estimate_tokens(
+        _body_chars(request_body) + _reply_chars(payload)))
 
 
 class LLMOutputError(RuntimeError):
@@ -80,6 +127,7 @@ class LLMClient:
             else:
                 if resp.status_code not in RETRYABLE_STATUS:
                     resp.raise_for_status()
+                    _record_call_usage(json, resp)
                     return resp
                 last_exc = httpx.HTTPStatusError(
                     f"HTTP {resp.status_code}", request=resp.request, response=resp)
@@ -148,22 +196,43 @@ class LLMClient:
         body = gateway_body({"model": model, "messages": messages, "stream": True,
                              "stream_options": {"include_usage": True}},
                             service=self._service, call_id=new_call_id(), attempt=1)
-        async with asyncio.timeout(timeout_s):
-            async with self._http.stream(
-                    "POST", "/v1/chat/completions", json=body) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if not line.startswith("data:"):
-                        continue
-                    data = line[len("data:"):].strip()
-                    if not data or data == "[DONE]":
-                        continue
-                    chunk = json.loads(data)
-                    if not chunk.get("choices"):
-                        continue  # final usage-only frame has an empty choices list
-                    delta = chunk["choices"][0]["delta"].get("content")
-                    if delta:
-                        yield delta
+        # Accounting for a STREAM is not the same problem as for a single
+        # reply: the `usage` block arrives (if at all) in a trailing frame
+        # after the last token, so it is only knowable once the iteration is
+        # over — including when it ends badly. The `finally` is the point:
+        # a timeout, a client disconnect or a mid-stream provider error still
+        # burned the prompt plus whatever was generated, and recording nothing
+        # there would be the fabricated zero AGENTS.md forbids.
+        usage: dict | None = None
+        streamed_chars = 0
+        try:
+            async with asyncio.timeout(timeout_s):
+                async with self._http.stream(
+                        "POST", "/v1/chat/completions", json=body) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if not line.startswith("data:"):
+                            continue
+                        data = line[len("data:"):].strip()
+                        if not data or data == "[DONE]":
+                            continue
+                        chunk = json.loads(data)
+                        # Which frame carries `usage` is provider-dependent:
+                        # the usage-only final frame (empty `choices`) is the
+                        # documented shape, but some put it on the last
+                        # content frame. Take the last one seen from ANY frame
+                        # rather than betting on a frame shape.
+                        if isinstance(chunk.get("usage"), dict):
+                            usage = chunk["usage"]
+                        if not chunk.get("choices"):
+                            continue  # final usage-only frame has an empty choices list
+                        delta = chunk["choices"][0]["delta"].get("content")
+                        if delta:
+                            streamed_chars += len(delta)
+                            yield delta
+        finally:
+            record_usage(usage, estimate=estimate_tokens(
+                _body_chars(body) + streamed_chars))
 
     async def embed(self, texts: list[str], dimensions: int = 1536,
                     model: str | None = None,

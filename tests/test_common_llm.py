@@ -378,6 +378,126 @@ async def test_usage_identity_is_isolated_between_concurrent_requests():
     await client.close()
 
 
+async def test_chat_json_records_provider_usage_into_the_active_tally():
+    from bacmr_common.usage import usage_tally
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={**_completion('{"answer": "ok"}'),
+                                         "usage": {"prompt_tokens": 120,
+                                                   "completion_tokens": 8}})
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with usage_tally() as tally:
+        await client.chat_json("internal-batch", "sys", "user", SCHEMA)
+    await client.close()
+    assert (tally.prompt_tokens, tally.completion_tokens) == (120, 8)
+    assert tally.unmeasured_calls == 0
+
+
+async def test_every_http_attempt_is_counted_not_just_the_successful_one():
+    """A corrective retry is a second call the provider really served. Counting
+    only the last one is how a budget silently undercounts by a multiple."""
+    from bacmr_common.usage import usage_tally
+    replies = iter(["oops", '{"answer": "second"}'])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={**_completion(next(replies)),
+                                         "usage": {"prompt_tokens": 50,
+                                                   "completion_tokens": 5}})
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with usage_tally() as tally:
+        await client.chat_json("internal-batch", "sys", "u", SCHEMA)
+    await client.close()
+    assert tally.measured_calls == 2
+    assert tally.measured_tokens == 110
+
+
+async def test_reply_without_usage_is_recorded_as_an_estimate_never_as_zero():
+    from bacmr_common.usage import usage_tally
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_completion('{"answer": "ok"}'))
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with usage_tally() as tally:
+        await client.chat_json("internal-batch", "system prompt here", "user text", SCHEMA)
+    await client.close()
+    assert tally.measured_calls == 0
+    assert tally.unmeasured_calls == 1
+    assert tally.estimated_tokens > 0  # a labelled guess, not a silent zero
+
+
+async def test_embeddings_usage_lands_in_the_tally_too():
+    from bacmr_common.usage import usage_tally
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "data": [{"index": 0, "embedding": [1.0, 0.0]}],
+            "usage": {"prompt_tokens": 42, "total_tokens": 42}})
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with usage_tally() as tally:
+        await client.embed(["hello"])
+    await client.close()
+    assert tally.measured_tokens == 42
+
+
+async def test_stream_records_usage_from_the_trailing_usage_only_frame():
+    from bacmr_common.usage import usage_tally
+
+    def handler(request):
+        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"hello"}}]}\n\n'
+            'data: {"choices":[],"usage":{"prompt_tokens":900,"completion_tokens":60}}\n\n'
+            'data: [DONE]\n\n')
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with usage_tally() as tally:
+        assert [x async for x in client.chat_stream("student-chat", [])] == ["hello"]
+    await client.close()
+    assert (tally.prompt_tokens, tally.completion_tokens) == (900, 60)
+    assert tally.unmeasured_calls == 0
+
+
+async def test_stream_without_a_usage_frame_still_records_a_labelled_estimate():
+    from bacmr_common.usage import usage_tally
+
+    def handler(request):
+        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"hello"}}]}\n\n'
+            'data: [DONE]\n\n')
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with usage_tally() as tally:
+        assert [x async for x in client.chat_stream(
+            "student-chat", [{"role": "user", "content": "a" * 400}])] == ["hello"]
+    await client.close()
+    assert tally.unmeasured_calls == 1
+    assert tally.estimated_tokens >= 100  # the prompt counts, not just the reply
+
+
+async def test_abandoned_stream_still_records_what_it_burned():
+    """A client disconnect mid-reply does not refund the prompt. Recording
+    nothing here would be exactly the fabricated zero AGENTS.md forbids."""
+    from bacmr_common.usage import usage_tally
+
+    def handler(request):
+        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"hel"}}]}\n\n'
+            'data: {"choices":[{"delta":{"content":"lo"}}]}\n\n'
+            'data: {"choices":[],"usage":{"prompt_tokens":900,"completion_tokens":60}}\n\n'
+            'data: [DONE]\n\n')
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    with usage_tally() as tally:
+        stream = client.chat_stream("student-chat", [{"role": "user", "content": "q" * 80}])
+        async for _first in stream:
+            break  # walk away before the usage frame ever arrives
+        await stream.aclose()
+    await client.close()
+    # No provider number reached us, so: unmeasured + a labelled estimate.
+    assert tally.unmeasured_calls == 1
+    assert tally.estimated_tokens > 0
+
+
 async def test_stream_requests_usage_and_handles_usage_only_final_frame():
     seen = []
     def handler(request):
