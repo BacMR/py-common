@@ -135,6 +135,12 @@ class LLMClient:
                 delay = (backoff_schedule[attempt] if backoff_schedule
                         else _BACKOFF_BASE * (2 ** attempt))
                 await asyncio.sleep(delay * (1 + random.random() * 0.25))
+        if last_exc is None:
+            # Only reachable if max_attempts <= 0 (a caller passing 0, or a
+            # backoff_schedule that somehow computed one): the loop never ran,
+            # so no request was made. `raise None` would die with a bare
+            # TypeError that says nothing about the real mistake.
+            raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
         raise last_exc
 
     async def chat_json(self, model: str, system: str, user: str, schema: dict,
@@ -146,9 +152,10 @@ class LLMClient:
                 {"type": "image_url", "image_url": {
                     "url": "data:image/png;base64," + base64.b64encode(img).decode()}}
                 for img in images]
-        body = {"model": model, "response_format": {"type": "json_object"},
-                "messages": [{"role": "system", "content": system},
-                             {"role": "user", "content": content}]}
+        messages: list[dict] = [{"role": "system", "content": system},
+                                {"role": "user", "content": content}]
+        body: dict = {"model": model, "response_format": {"type": "json_object"},
+                      "messages": messages}
         last_err: Exception | None = None
         last_raw: str | None = None
         for attempt in range(3):  # blind try, then two corrective retries
@@ -157,7 +164,7 @@ class LLMClient:
                 # feed the failure back — a blind retry usually repeats the same
                 # shape mistake (observed live: three figure-stage deaths on
                 # three different missing fields), a corrected one rarely does
-                attempt_body = {**body, "messages": body["messages"] + [
+                attempt_body = {**body, "messages": messages + [
                     {"role": "assistant", "content": last_raw},
                     {"role": "user", "content":
                         "That reply was rejected by the JSON validator: "

@@ -121,7 +121,15 @@ class EventConsumer:
         try:
             await self._handler(envelope)
         except Exception:  # noqa: BLE001 - intentional catch-all for retry routing
-            attempts = int(message.headers.get("x-attempts", 0)) + 1
+            # aio-pika types a header value as the whole AMQP field union. Ours
+            # is always the int we published, but a broker/plugin round trip can
+            # hand back a string or bytes, and int() on a table/timestamp/None
+            # would raise INSIDE the retry-routing handler -- killing the
+            # consumer on the one path that exists to keep it alive.
+            raw_attempts = message.headers.get("x-attempts", 0)
+            attempts = (int(raw_attempts)
+                        if isinstance(raw_attempts, int | float | str | bytes)
+                        else 0) + 1
             body = message.body
             if attempts >= self._max_attempts:
                 await self._ch.default_exchange.publish(
