@@ -1,4 +1,5 @@
 """End-to-end skeleton proof: outbox emit -> poller -> rabbitmq -> consumer -> dedupe."""
+
 import asyncio
 import uuid
 
@@ -27,12 +28,16 @@ async def test_full_round_trip():
         received.append(env)
 
     qname = f"smoke.{uuid.uuid4().hex[:8]}"
-    consumer = EventConsumer(eng, "content", AMQP, qname,
-                             ["content.document.ingested"], handler)
+    consumer = EventConsumer(eng, "content", AMQP, qname, ["content.document.ingested"], handler)
     await consumer.start()
 
-    payload = {"document_id": str(uuid.uuid4()), "subject_id": "math",
-               "language": "en", "chunk_count": 7, "source": "curriculum"}
+    payload = {
+        "document_id": str(uuid.uuid4()),
+        "subject_id": "math",
+        "language": "en",
+        "chunk_count": 7,
+        "source": "curriculum",
+    }
     async with eng.begin() as conn:
         eid = await emit(conn, "content", "content.document.ingested", payload)
 
@@ -51,9 +56,12 @@ async def test_full_round_trip():
     n = 0
     while n == 0 and asyncio.get_event_loop().time() < stamp_deadline:
         async with eng.connect() as conn:
-            n = (await conn.execute(sa.text(
-                "SELECT count(*) FROM content.processed_events WHERE event_id = :e"
-            ), {"e": str(eid)})).scalar()
+            n = (
+                await conn.execute(
+                    sa.text("SELECT count(*) FROM content.processed_events WHERE event_id = :e"),
+                    {"e": str(eid)},
+                )
+            ).scalar()
         if n == 0:
             await asyncio.sleep(0.2)
     assert n == 1

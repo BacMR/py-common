@@ -50,13 +50,20 @@ def test_envelope_shape():
 
 def test_every_schema_file_is_loadable():
     from bacmr_contracts.validate import SCHEMAS
+
     assert len(SCHEMAS) >= 8
 
 
 def test_document_registered_schema_roundtrip():
     from bacmr_contracts.validate import make_envelope
-    env = make_envelope("content.document.registered", {
-        "document_id": "0e2a2b1c-9a75-4c2e-9d9a-1a2b3c4d5e6f",
-        "subject_id": "physique-7c", "language": "fr",
-        "checksum_sha256": "a" * 64})
+
+    env = make_envelope(
+        "content.document.registered",
+        {
+            "document_id": "0e2a2b1c-9a75-4c2e-9d9a-1a2b3c4d5e6f",
+            "subject_id": "physique-7c",
+            "language": "fr",
+            "checksum_sha256": "a" * 64,
+        },
+    )
     assert env["routing_key"] == "content.document.registered"

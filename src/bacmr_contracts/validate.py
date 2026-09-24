@@ -1,5 +1,6 @@
 """Event contract validation. Schemas are the source of truth, shipped as package data
 under bacmr_contracts/schemas so they survive a non-editable (wheel) install."""
+
 import datetime as dt
 import json
 import uuid

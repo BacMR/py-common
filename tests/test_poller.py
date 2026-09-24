@@ -31,8 +31,13 @@ async def test_poller_publishes_and_stamps(engine):
     q = await ch.declare_queue("test.poller", exclusive=True)
     await q.bind(ex, "content.#")
 
-    payload = {"document_id": str(uuid.uuid4()), "subject_id": "svt",
-               "language": "ar", "chunk_count": 3, "source": "curriculum"}
+    payload = {
+        "document_id": str(uuid.uuid4()),
+        "subject_id": "svt",
+        "language": "ar",
+        "chunk_count": 3,
+        "source": "curriculum",
+    }
     async with engine.begin() as c:
         eid = await emit(c, "content", "content.document.ingested", payload)
 
@@ -47,9 +52,11 @@ async def test_poller_publishes_and_stamps(engine):
     await msg.ack()
 
     async with engine.connect() as c:
-        left = (await c.execute(sa.text(
-            "SELECT count(*) FROM content.outbox WHERE published_at IS NULL"
-        ))).scalar()
+        left = (
+            await c.execute(
+                sa.text("SELECT count(*) FROM content.outbox WHERE published_at IS NULL")
+            )
+        ).scalar()
     assert left == 0
 
     assert await poller.run_once() == 0  # idempotent: nothing left

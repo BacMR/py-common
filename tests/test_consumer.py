@@ -26,8 +26,13 @@ async def engine():
 
 
 def _payload():
-    return {"document_id": str(uuid.uuid4()), "subject_id": "svt",
-            "language": "fr", "chunk_count": 1, "source": "curriculum"}
+    return {
+        "document_id": str(uuid.uuid4()),
+        "subject_id": "svt",
+        "language": "fr",
+        "chunk_count": 1,
+        "source": "curriculum",
+    }
 
 
 async def _emit_and_publish(engine, payload):
@@ -45,8 +50,7 @@ async def test_delivers_once_and_dedupes(engine):
         seen.append(env)
 
     qname = f"test.consumer.{uuid.uuid4().hex[:8]}"
-    consumer = EventConsumer(engine, "content", AMQP, qname,
-                             ["content.document.ingested"], handler)
+    consumer = EventConsumer(engine, "content", AMQP, qname, ["content.document.ingested"], handler)
     await consumer.start()
     payload = _payload()
     await _emit_and_publish(engine, payload)
@@ -57,8 +61,10 @@ async def test_delivers_once_and_dedupes(engine):
     conn = await aio_pika.connect_robust(AMQP)
     ch = await conn.channel()
     import json
+
     await ch.default_exchange.publish(
-        aio_pika.Message(body=json.dumps(seen[0]).encode()), routing_key=qname)
+        aio_pika.Message(body=json.dumps(seen[0]).encode()), routing_key=qname
+    )
     await asyncio.sleep(2)
     assert len(seen) == 1  # deduped
     await consumer.stop()
@@ -73,9 +79,16 @@ async def test_failures_retry_then_dlq(engine):
         raise ValueError("boom")
 
     qname = f"test.consumer.{uuid.uuid4().hex[:8]}"
-    consumer = EventConsumer(engine, "content", AMQP, qname,
-                             ["content.document.ingested"], bad_handler,
-                             max_attempts=3, retry_delay_ms=200)
+    consumer = EventConsumer(
+        engine,
+        "content",
+        AMQP,
+        qname,
+        ["content.document.ingested"],
+        bad_handler,
+        max_attempts=3,
+        retry_delay_ms=200,
+    )
     await consumer.start()
     await _emit_and_publish(engine, _payload())
     await asyncio.sleep(5)
@@ -98,14 +111,12 @@ async def test_malformed_body_goes_to_dlq_without_wedging(engine):
         seen.append(env)
 
     qname = f"test.consumer.{uuid.uuid4().hex[:8]}"
-    consumer = EventConsumer(engine, "content", AMQP, qname,
-                             ["content.document.ingested"], handler)
+    consumer = EventConsumer(engine, "content", AMQP, qname, ["content.document.ingested"], handler)
     await consumer.start()
 
     conn = await aio_pika.connect_robust(AMQP)
     ch = await conn.channel()
-    await ch.default_exchange.publish(
-        aio_pika.Message(body=b"not json at all"), routing_key=qname)
+    await ch.default_exchange.publish(aio_pika.Message(body=b"not json at all"), routing_key=qname)
     await asyncio.sleep(2)
 
     dlq = await ch.declare_queue(f"{qname}.dlq", durable=True, passive=True)
@@ -135,14 +146,12 @@ async def test_non_object_json_body_goes_to_dlq_without_wedging(engine):
         seen.append(env)
 
     qname = f"test.consumer.{uuid.uuid4().hex[:8]}"
-    consumer = EventConsumer(engine, "content", AMQP, qname,
-                             ["content.document.ingested"], handler)
+    consumer = EventConsumer(engine, "content", AMQP, qname, ["content.document.ingested"], handler)
     await consumer.start()
 
     conn = await aio_pika.connect_robust(AMQP)
     ch = await conn.channel()
-    await ch.default_exchange.publish(
-        aio_pika.Message(body=b"null"), routing_key=qname)
+    await ch.default_exchange.publish(aio_pika.Message(body=b"null"), routing_key=qname)
     await asyncio.sleep(2)
 
     dlq = await ch.declare_queue(f"{qname}.dlq", durable=True, passive=True)
@@ -174,15 +183,13 @@ async def test_non_uuid_event_id_goes_to_dlq_without_wedging(engine):
         seen.append(env)
 
     qname = f"test.consumer.{uuid.uuid4().hex[:8]}"
-    consumer = EventConsumer(engine, "content", AMQP, qname,
-                             ["content.document.ingested"], handler)
+    consumer = EventConsumer(engine, "content", AMQP, qname, ["content.document.ingested"], handler)
     await consumer.start()
 
     conn = await aio_pika.connect_robust(AMQP)
     ch = await conn.channel()
     body = json.dumps({"event_id": "oops"}).encode()
-    await ch.default_exchange.publish(
-        aio_pika.Message(body=body), routing_key=qname)
+    await ch.default_exchange.publish(aio_pika.Message(body=body), routing_key=qname)
     await asyncio.sleep(2)
 
     dlq = await ch.declare_queue(f"{qname}.dlq", durable=True, passive=True)

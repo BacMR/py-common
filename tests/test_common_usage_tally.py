@@ -4,6 +4,7 @@ The rule under test throughout is AGENTS.md's: a provider-reported count is
 preserved as a measurement, a missing counter is UNKNOWN — never a fabricated
 zero — and a char estimate is never allowed to look like a measurement.
 """
+
 import asyncio
 
 from bacmr_common.usage import (

@@ -1,5 +1,6 @@
 """Idempotent event consumer (spec §3): processed_events dedupe, bounded retries
 via a per-queue retry queue (per-message TTL dead-lettering back), then DLQ."""
+
 import asyncio
 import json
 import uuid
@@ -9,8 +10,11 @@ import aio_pika
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bacmr_common._sql import validate_schema_ident
+
 
 def processed_ddl(schema: str) -> str:
+    schema = validate_schema_ident(schema)
     return f"""
     CREATE TABLE IF NOT EXISTS {schema}.processed_events (
         event_id UUID PRIMARY KEY,
@@ -19,13 +23,20 @@ def processed_ddl(schema: str) -> str:
 
 
 class EventConsumer:
-    def __init__(self, engine: AsyncEngine, schema: str, amqp_url: str, queue: str,
-                 routing_keys: list[str],
-                 handler: Callable[[dict], Awaitable[None]],
-                 exchange: str = "bacmr.events",
-                 max_attempts: int = 3, retry_delay_ms: int = 10_000):
+    def __init__(
+        self,
+        engine: AsyncEngine,
+        schema: str,
+        amqp_url: str,
+        queue: str,
+        routing_keys: list[str],
+        handler: Callable[[dict], Awaitable[None]],
+        exchange: str = "bacmr.events",
+        max_attempts: int = 3,
+        retry_delay_ms: int = 10_000,
+    ):
         self._engine = engine
-        self._schema = schema
+        self._schema = validate_schema_ident(schema)
         self._amqp_url = amqp_url
         self._queue_name = queue
         self._routing_keys = routing_keys
@@ -40,49 +51,65 @@ class EventConsumer:
         ch = await self._conn.channel()
         await ch.set_qos(prefetch_count=10)
         ex = await ch.declare_exchange(
-            self._exchange_name, aio_pika.ExchangeType.TOPIC, durable=True)
+            self._exchange_name, aio_pika.ExchangeType.TOPIC, durable=True
+        )
         self._dlq = await ch.declare_queue(
-            f"{self._queue_name}.dlq", durable=True,
-            arguments={"x-queue-type": "quorum"})
+            f"{self._queue_name}.dlq", durable=True, arguments={"x-queue-type": "quorum"}
+        )
         # retry queue dead-letters expired messages back into the main queue. Stays classic
         # (not quorum): it relies on per-message TTL (`expiration=`) + a DLX to reinject
         # expired messages, a pattern quorum queues don't support the same way — quorum
         # queues have no per-message TTL dead-lettering guarantee equivalent to classic
         # queues' expired-message-at-head semantics used here.
         self._retry_q = await ch.declare_queue(
-            f"{self._queue_name}.retry", durable=True,
-            arguments={"x-dead-letter-exchange": "",
-                       "x-dead-letter-routing-key": self._queue_name})
+            f"{self._queue_name}.retry",
+            durable=True,
+            arguments={"x-dead-letter-exchange": "", "x-dead-letter-routing-key": self._queue_name},
+        )
         # Quorum queues default to delivery_limit=20 (broker policy) with no configured
         # dead-letter route: once a message exhausts its 20 redeliveries RabbitMQ drops
         # it silently. A fast nack-requeue loop (e.g. during a dedupe-store outage) can
         # burn all 20 in milliseconds. Routing delivery-limit-exceeded messages to the
         # DLQ here is the safety net that turns "silently dropped" into "inspectable".
         self._main_q = await ch.declare_queue(
-            self._queue_name, durable=True,
-            arguments={"x-queue-type": "quorum",
-                       "x-dead-letter-exchange": "",
-                       "x-dead-letter-routing-key": f"{self._queue_name}.dlq"})
+            self._queue_name,
+            durable=True,
+            arguments={
+                "x-queue-type": "quorum",
+                "x-dead-letter-exchange": "",
+                "x-dead-letter-routing-key": f"{self._queue_name}.dlq",
+            },
+        )
         for rk in self._routing_keys:
             await self._main_q.bind(ex, rk)
         self._ch = ch
         await self._main_q.consume(self._on_message)
 
     async def _already_processed(self, event_id: str) -> bool:
+        # `self._schema` is validated in __init__ (validate_schema_ident) as a bare SQL
+        # identifier; `:eid` binds as a query parameter. Same audited pattern as
+        # retrieval.py's nosemgrep sites.
         async with self._engine.connect() as conn:
-            row = await conn.execute(sa.text(
-                f"SELECT 1 FROM {self._schema}.processed_events WHERE event_id = :eid"
-            ), {"eid": event_id})
+            row = await conn.execute(
+                sa.text(  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                    f"SELECT 1 FROM {self._schema}.processed_events WHERE event_id = :eid"  # noqa: S608
+                ),
+                {"eid": event_id},
+            )
             return row.first() is not None
 
     async def _mark_processed(self, event_id: str) -> None:
         # after successful handling only — a crash mid-handler leaves the message
-        # unacked and unmarked, so redelivery reprocesses it (at-least-once)
+        # unacked and unmarked, so redelivery reprocesses it (at-least-once).
+        # `self._schema` is validated in __init__; `:eid` binds as a query parameter.
         async with self._engine.begin() as conn:
-            await conn.execute(sa.text(
-                f"INSERT INTO {self._schema}.processed_events (event_id) "
-                "VALUES (:eid) ON CONFLICT DO NOTHING"
-            ), {"eid": event_id})
+            await conn.execute(
+                sa.text(  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                    f"INSERT INTO {self._schema}.processed_events (event_id) "  # noqa: S608
+                    "VALUES (:eid) ON CONFLICT DO NOTHING"
+                ),
+                {"eid": event_id},
+            )
 
     async def _on_message(self, message: aio_pika.abc.AbstractIncomingMessage) -> None:
         try:
@@ -93,14 +120,24 @@ class EventConsumer:
             # where the blanket infra-error except misclassifies it as a DB outage and
             # nack-requeues it forever. Reject it here as malformed instead.
             uuid.UUID(str(event_id))
-        except (json.JSONDecodeError, KeyError, UnicodeDecodeError, TypeError,
-                ValueError, AttributeError):
+        except (
+            json.JSONDecodeError,
+            KeyError,
+            UnicodeDecodeError,
+            TypeError,
+            ValueError,
+            AttributeError,
+        ):
             # poison message: not our JSON envelope shape at all, no amount of retrying
             # will fix it. Dead-letter immediately so it doesn't wedge the queue forever.
             await self._ch.default_exchange.publish(
-                aio_pika.Message(body=message.body, headers={"x-dead-reason": "malformed"},
-                                 delivery_mode=aio_pika.DeliveryMode.PERSISTENT),
-                routing_key=f"{self._queue_name}.dlq")
+                aio_pika.Message(
+                    body=message.body,
+                    headers={"x-dead-reason": "malformed"},
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                ),
+                routing_key=f"{self._queue_name}.dlq",
+            )
             await message.ack()
             return
 
@@ -127,15 +164,19 @@ class EventConsumer:
             # would raise INSIDE the retry-routing handler -- killing the
             # consumer on the one path that exists to keep it alive.
             raw_attempts = message.headers.get("x-attempts", 0)
-            attempts = (int(raw_attempts)
-                        if isinstance(raw_attempts, int | float | str | bytes)
-                        else 0) + 1
+            attempts = (
+                int(raw_attempts) if isinstance(raw_attempts, int | float | str | bytes) else 0
+            ) + 1
             body = message.body
             if attempts >= self._max_attempts:
                 await self._ch.default_exchange.publish(
-                    aio_pika.Message(body=body, headers={"x-attempts": attempts},
-                                     delivery_mode=aio_pika.DeliveryMode.PERSISTENT),
-                    routing_key=f"{self._queue_name}.dlq")
+                    aio_pika.Message(
+                        body=body,
+                        headers={"x-attempts": attempts},
+                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                    ),
+                    routing_key=f"{self._queue_name}.dlq",
+                )
             else:
                 # exponential backoff: 1x, 2x, 4x, ... retry_delay_ms. Note the retry queue
                 # is a single shared classic queue using per-message TTL (`expiration=`) to
@@ -145,10 +186,13 @@ class EventConsumer:
                 # blocking). Fine at this volume; revisit if retry latency matters more.
                 await self._ch.default_exchange.publish(
                     aio_pika.Message(
-                        body=body, headers={"x-attempts": attempts},
+                        body=body,
+                        headers={"x-attempts": attempts},
                         expiration=self._retry_delay_ms / 1000 * 2 ** (attempts - 1),
-                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT),
-                    routing_key=f"{self._queue_name}.retry")
+                        delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                    ),
+                    routing_key=f"{self._queue_name}.retry",
+                )
             await message.ack()
             return
         await self._mark_processed(event_id)

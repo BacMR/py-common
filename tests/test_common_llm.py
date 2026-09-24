@@ -5,8 +5,12 @@ import httpx
 import pytest
 from bacmr_common.llm import LLMClient, LLMOutputError
 
-SCHEMA = {"type": "object", "required": ["answer"],
-          "properties": {"answer": {"type": "string"}}, "additionalProperties": False}
+SCHEMA = {
+    "type": "object",
+    "required": ["answer"],
+    "properties": {"answer": {"type": "string"}},
+    "additionalProperties": False,
+}
 
 
 class _GatewaySettings:
@@ -195,10 +199,14 @@ def _sse(*chunks: str, done: bool = True) -> bytes:
 
 async def test_chat_stream_yields_content_deltas_in_order():
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, content=_sse(
-            json.dumps({"choices": [{"delta": {"content": "Hel"}}]}),
-            json.dumps({"choices": [{"delta": {"content": "lo"}}]}),
-        ), headers={"content-type": "text/event-stream"})
+        return httpx.Response(
+            200,
+            content=_sse(
+                json.dumps({"choices": [{"delta": {"content": "Hel"}}]}),
+                json.dumps({"choices": [{"delta": {"content": "lo"}}]}),
+            ),
+            headers={"content-type": "text/event-stream"},
+        )
 
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     out = [d async for d in client.chat_stream("student-chat", [{"role": "user", "content": "hi"}])]
@@ -208,11 +216,15 @@ async def test_chat_stream_yields_content_deltas_in_order():
 
 async def test_chat_stream_skips_done_and_empty_deltas():
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, content=_sse(
-            json.dumps({"choices": [{"delta": {"role": "assistant"}}]}),
-            json.dumps({"choices": [{"delta": {"content": "ok"}}]}),
-            json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}]}),
-        ), headers={"content-type": "text/event-stream"})
+        return httpx.Response(
+            200,
+            content=_sse(
+                json.dumps({"choices": [{"delta": {"role": "assistant"}}]}),
+                json.dumps({"choices": [{"delta": {"content": "ok"}}]}),
+                json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}]}),
+            ),
+            headers={"content-type": "text/event-stream"},
+        )
 
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     out = [d async for d in client.chat_stream("student-chat", [{"role": "user", "content": "hi"}])]
@@ -258,7 +270,8 @@ async def test_chat_stream_times_out_via_asyncio_timeout(monkeypatch):
 
     with pytest.raises(TimeoutError):
         async for _ in client.chat_stream(
-                "student-chat", [{"role": "user", "content": "hi"}], timeout_s=0.01):
+            "student-chat", [{"role": "user", "content": "hi"}], timeout_s=0.01
+        ):
             pass
     await client.close()
 
@@ -283,8 +296,7 @@ async def test_backoff_schedule_sleeps_per_schedule_then_raises(monkeypatch):
 
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     with pytest.raises(httpx.HTTPStatusError):
-        await client.chat_json("internal-batch", "sys", "u", SCHEMA,
-                               backoff_schedule=(1.0, 2.0))
+        await client.chat_json("internal-batch", "sys", "u", SCHEMA, backoff_schedule=(1.0, 2.0))
     await client.close()
     assert n == 3  # schedule (2 entries) + 1 final failing attempt
     assert sleeps == [1.0, 2.0]
@@ -357,22 +369,28 @@ async def test_non_retryable_status_raises_immediately():
 
 async def test_usage_identity_is_isolated_between_concurrent_requests():
     from bacmr_common.usage import usage_context
+
     bodies = []
+
     async def handler(request):
         await asyncio.sleep(0)
         bodies.append(json.loads(request.content))
         return httpx.Response(200, json=_completion('{"answer":"ok"}'))
+
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+
     async def run(student):
-        with usage_context(consumption="user", actor=student, operation="tutor",
-                           request_id=student+"-turn"):
+        with usage_context(
+            consumption="user", actor=student, operation="tutor", request_id=student + "-turn"
+        ):
             await client.chat_json("internal-batch", "s", "q", SCHEMA)
+
     await asyncio.gather(run("alice"), run("bob"))
     await client.chat_json("ingest-text", "s", "q", SCHEMA)
     assert {b["user"] for b in bodies[:2]} == {"alice", "bob"}
     for b in bodies[:2]:
         assert "consumption:user" in b["metadata"]["tags"]
-        assert b["metadata"]["request_id"] == b["user"]+"-turn"
+        assert b["metadata"]["request_id"] == b["user"] + "-turn"
     assert bodies[2]["user"].startswith("system:")
     assert "consumption:system" in bodies[2]["metadata"]["tags"]
     await client.close()
@@ -382,9 +400,13 @@ async def test_chat_json_records_provider_usage_into_the_active_tally():
     from bacmr_common.usage import usage_tally
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={**_completion('{"answer": "ok"}'),
-                                         "usage": {"prompt_tokens": 120,
-                                                   "completion_tokens": 8}})
+        return httpx.Response(
+            200,
+            json={
+                **_completion('{"answer": "ok"}'),
+                "usage": {"prompt_tokens": 120, "completion_tokens": 8},
+            },
+        )
 
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     with usage_tally() as tally:
@@ -398,12 +420,17 @@ async def test_every_http_attempt_is_counted_not_just_the_successful_one():
     """A corrective retry is a second call the provider really served. Counting
     only the last one is how a budget silently undercounts by a multiple."""
     from bacmr_common.usage import usage_tally
+
     replies = iter(["oops", '{"answer": "second"}'])
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={**_completion(next(replies)),
-                                         "usage": {"prompt_tokens": 50,
-                                                   "completion_tokens": 5}})
+        return httpx.Response(
+            200,
+            json={
+                **_completion(next(replies)),
+                "usage": {"prompt_tokens": 50, "completion_tokens": 5},
+            },
+        )
 
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     with usage_tally() as tally:
@@ -432,9 +459,13 @@ async def test_embeddings_usage_lands_in_the_tally_too():
     from bacmr_common.usage import usage_tally
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={
-            "data": [{"index": 0, "embedding": [1.0, 0.0]}],
-            "usage": {"prompt_tokens": 42, "total_tokens": 42}})
+        return httpx.Response(
+            200,
+            json={
+                "data": [{"index": 0, "embedding": [1.0, 0.0]}],
+                "usage": {"prompt_tokens": 42, "total_tokens": 42},
+            },
+        )
 
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     with usage_tally() as tally:
@@ -447,9 +478,12 @@ async def test_stream_records_usage_from_the_trailing_usage_only_frame():
     from bacmr_common.usage import usage_tally
 
     def handler(request):
-        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"hello"}}]}\n\n'
+        return httpx.Response(
+            200,
+            text='data: {"choices":[{"delta":{"content":"hello"}}]}\n\n'
             'data: {"choices":[],"usage":{"prompt_tokens":900,"completion_tokens":60}}\n\n'
-            'data: [DONE]\n\n')
+            "data: [DONE]\n\n",
+        )
 
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     with usage_tally() as tally:
@@ -463,13 +497,18 @@ async def test_stream_without_a_usage_frame_still_records_a_labelled_estimate():
     from bacmr_common.usage import usage_tally
 
     def handler(request):
-        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"hello"}}]}\n\n'
-            'data: [DONE]\n\n')
+        return httpx.Response(
+            200, text='data: {"choices":[{"delta":{"content":"hello"}}]}\n\ndata: [DONE]\n\n'
+        )
 
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     with usage_tally() as tally:
-        assert [x async for x in client.chat_stream(
-            "student-chat", [{"role": "user", "content": "a" * 400}])] == ["hello"]
+        assert [
+            x
+            async for x in client.chat_stream(
+                "student-chat", [{"role": "user", "content": "a" * 400}]
+            )
+        ] == ["hello"]
     await client.close()
     assert tally.unmeasured_calls == 1
     assert tally.estimated_tokens >= 100  # the prompt counts, not just the reply
@@ -481,10 +520,13 @@ async def test_abandoned_stream_still_records_what_it_burned():
     from bacmr_common.usage import usage_tally
 
     def handler(request):
-        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"hel"}}]}\n\n'
+        return httpx.Response(
+            200,
+            text='data: {"choices":[{"delta":{"content":"hel"}}]}\n\n'
             'data: {"choices":[{"delta":{"content":"lo"}}]}\n\n'
             'data: {"choices":[],"usage":{"prompt_tokens":900,"completion_tokens":60}}\n\n'
-            'data: [DONE]\n\n')
+            "data: [DONE]\n\n",
+        )
 
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     with usage_tally() as tally:
@@ -500,11 +542,16 @@ async def test_abandoned_stream_still_records_what_it_burned():
 
 async def test_stream_requests_usage_and_handles_usage_only_final_frame():
     seen = []
+
     def handler(request):
         seen.append(json.loads(request.content))
-        return httpx.Response(200, text='data: {"choices":[{"delta":{"content":"hello"}}]}\n\n'
+        return httpx.Response(
+            200,
+            text='data: {"choices":[{"delta":{"content":"hello"}}]}\n\n'
             'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":1}}\n\n'
-            'data: [DONE]\n\n')
+            "data: [DONE]\n\n",
+        )
+
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     assert [x async for x in client.chat_stream("student-chat", [])] == ["hello"]
     assert seen[0]["stream_options"] == {"include_usage": True}
@@ -513,14 +560,18 @@ async def test_stream_requests_usage_and_handles_usage_only_final_frame():
 
 
 async def test_retry_attempts_and_embeddings_have_accounting_metadata(monkeypatch):
-    async def no_sleep(_): pass
+    async def no_sleep(_):
+        pass
+
     monkeypatch.setattr("bacmr_common.llm.asyncio.sleep", no_sleep)
     bodies = []
+
     def handler(request):
         bodies.append(json.loads(request.content))
         if len(bodies) == 1:
             return httpx.Response(429)
-        return httpx.Response(200, json={"data":[{"index":0,"embedding":[1,0]}]})
+        return httpx.Response(200, json={"data": [{"index": 0, "embedding": [1, 0]}]})
+
     client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
     await client.embed(["text"])
     assert [b["metadata"]["attempt"] for b in bodies] == [1, 2]
@@ -551,8 +602,14 @@ async def test_service_tag_prefers_settings_usage_service_over_module_fallback()
 
 def test_accounting_fields_use_litellm_persisted_metadata_container():
     from bacmr_common.usage import gateway_body, usage_context
-    with usage_context(consumption="system", actor="system:ingestion", job_id="job-1",
-                       document_id="book-1", stage="figures"):
+
+    with usage_context(
+        consumption="system",
+        actor="system:ingestion",
+        job_id="job-1",
+        document_id="book-1",
+        stage="figures",
+    ):
         body = gateway_body({}, service="knowledge", call_id="call-1", attempt=2)
     saved = body["metadata"]["spend_logs_metadata"]
     assert saved["job_id"] == "job-1"

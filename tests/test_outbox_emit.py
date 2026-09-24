@@ -32,9 +32,11 @@ async def test_emit_writes_row_in_same_transaction(engine):
     async with engine.begin() as conn:
         eid = await emit(conn, "content", "content.document.ingested", PAYLOAD)
     async with engine.connect() as conn:
-        row = (await conn.execute(sa.text(
-            "SELECT event_id, routing_key, published_at FROM content.outbox"
-        ))).one()
+        row = (
+            await conn.execute(
+                sa.text("SELECT event_id, routing_key, published_at FROM content.outbox")
+            )
+        ).one()
     assert row.event_id == eid
     assert row.routing_key == "content.document.ingested"
     assert row.published_at is None
@@ -52,6 +54,7 @@ async def test_emit_rolls_back_with_transaction(engine):
 
 async def test_emit_rejects_invalid_payload(engine):
     import jsonschema
+
     async with engine.begin() as conn:
         with pytest.raises(jsonschema.ValidationError):
             await emit(conn, "content", "content.document.ingested", {"nope": 1})

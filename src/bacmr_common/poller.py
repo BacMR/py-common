@@ -1,5 +1,6 @@
 """Publishes outbox rows to RabbitMQ. SKIP LOCKED makes concurrent pollers safe;
 rows are only stamped published_at after broker confirm, so delivery is at-least-once."""
+
 import asyncio
 import json
 
@@ -7,12 +8,20 @@ import aio_pika
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bacmr_common._sql import validate_schema_ident
+
 
 class OutboxPoller:
-    def __init__(self, engine: AsyncEngine, schema: str, amqp_url: str,
-                 exchange: str = "bacmr.events", batch: int = 100):
+    def __init__(
+        self,
+        engine: AsyncEngine,
+        schema: str,
+        amqp_url: str,
+        exchange: str = "bacmr.events",
+        batch: int = 100,
+    ):
         self._engine = engine
-        self._schema = schema
+        self._schema = validate_schema_ident(schema)
         self._amqp_url = amqp_url
         self._exchange_name = exchange
         self._batch = batch
@@ -31,12 +40,24 @@ class OutboxPoller:
     async def run_once(self) -> int:
         ex = await self._ensure_channel()
         published = 0
+        # `self._schema` is validated in __init__ (validate_schema_ident) as a bare SQL
+        # identifier; `:n`/`:id` bind as query parameters. Same audited pattern as
+        # retrieval.py's nosemgrep sites.
         async with self._engine.begin() as conn:
-            rows = (await conn.execute(sa.text(
-                f"SELECT id, event_id, routing_key, payload, occurred_at "
-                f"FROM {self._schema}.outbox WHERE published_at IS NULL "
-                f"ORDER BY id LIMIT :n FOR UPDATE SKIP LOCKED"
-            ), {"n": self._batch})).mappings().all()
+            rows = (
+                (
+                    await conn.execute(
+                        sa.text(  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                            "SELECT id, event_id, routing_key, payload, occurred_at "  # noqa: S608
+                            f"FROM {self._schema}.outbox WHERE published_at IS NULL "
+                            "ORDER BY id LIMIT :n FOR UPDATE SKIP LOCKED"
+                        ),
+                        {"n": self._batch},
+                    )
+                )
+                .mappings()
+                .all()
+            )
             for r in rows:
                 envelope = {
                     "event_id": str(r["event_id"]),
@@ -54,9 +75,13 @@ class OutboxPoller:
                     ),
                     routing_key=r["routing_key"],
                 )
-                await conn.execute(sa.text(
-                    f"UPDATE {self._schema}.outbox SET published_at = now() WHERE id = :id"
-                ), {"id": r["id"]})
+                await conn.execute(
+                    sa.text(  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                        f"UPDATE {self._schema}.outbox SET published_at = now() "  # noqa: S608
+                        "WHERE id = :id"
+                    ),
+                    {"id": r["id"]},
+                )
                 published += 1
         return published
 

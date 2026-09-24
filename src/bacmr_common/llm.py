@@ -11,6 +11,7 @@ and `.model_gateway_key` (and `.embedding_model` for `embed`) works. This lets
 both the knowledge service and the tutor service share this client without
 either importing the other's settings module.
 """
+
 import asyncio
 import base64
 import json
@@ -25,7 +26,7 @@ from bacmr_common.usage import estimate_tokens, gateway_body, new_call_id, recor
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 MAX_HTTP_ATTEMPTS = 5
-_BACKOFF_BASE = 1.0   # 1, 2, 4, 8 seconds (+ up to 25% jitter)
+_BACKOFF_BASE = 1.0  # 1, 2, 4, 8 seconds (+ up to 25% jitter)
 
 
 def _body_chars(body: dict) -> int:
@@ -43,8 +44,11 @@ def _body_chars(body: dict) -> int:
         if isinstance(content, str):
             chars += len(content)
         elif isinstance(content, list):
-            chars += sum(len(part.get("text", "")) for part in content
-                         if isinstance(part, dict) and part.get("type") == "text")
+            chars += sum(
+                len(part.get("text", ""))
+                for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
     payload_input = body.get("input")
     if isinstance(payload_input, str):
         chars += len(payload_input)
@@ -56,8 +60,11 @@ def _body_chars(body: dict) -> int:
 def _reply_chars(payload: dict) -> int:
     if not isinstance(payload, dict):
         return 0
-    return sum(len((choice.get("message") or {}).get("content") or "")
-               for choice in payload.get("choices") or [] if isinstance(choice, dict))
+    return sum(
+        len((choice.get("message") or {}).get("content") or "")
+        for choice in payload.get("choices") or []
+        if isinstance(choice, dict)
+    )
 
 
 def _record_call_usage(request_body: dict, resp: httpx.Response) -> None:
@@ -71,8 +78,7 @@ def _record_call_usage(request_body: dict, resp: httpx.Response) -> None:
     except ValueError:  # non-JSON body — nothing to measure, nothing to fake
         payload = {}
     usage = payload.get("usage") if isinstance(payload, dict) else None
-    record_usage(usage, estimate=estimate_tokens(
-        _body_chars(request_body) + _reply_chars(payload)))
+    record_usage(usage, estimate=estimate_tokens(_body_chars(request_body) + _reply_chars(payload)))
 
 
 class LLMOutputError(RuntimeError):
@@ -80,20 +86,27 @@ class LLMOutputError(RuntimeError):
 
 
 class LLMClient:
-    def __init__(self, settings: Any,
-                 transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(self, settings: Any, transport: httpx.AsyncBaseTransport | None = None):
         # `settings`: any object with `.model_gateway_url` / `.model_gateway_key`
         # (and `.embedding_model` for `embed`) — duck-typed, no service import.
         self._settings = settings
-        self._service = getattr(settings, "usage_service", settings.__class__.__module__.split(".")[0])
+        self._service = getattr(
+            settings, "usage_service", settings.__class__.__module__.split(".")[0]
+        )
         self._http = httpx.AsyncClient(
-            base_url=settings.model_gateway_url, transport=transport, timeout=120,
-            headers={"Authorization": f"Bearer {settings.model_gateway_key}"})
+            base_url=settings.model_gateway_url,
+            transport=transport,
+            timeout=120,
+            headers={"Authorization": f"Bearer {settings.model_gateway_key}"},
+        )
 
-    async def _post_with_backoff(self, path: str, json: dict,
-                                 max_attempts: int = MAX_HTTP_ATTEMPTS,
-                                 backoff_schedule: tuple[float, ...] | None = None,
-                                 ) -> httpx.Response:
+    async def _post_with_backoff(
+        self,
+        path: str,
+        json: dict,
+        max_attempts: int = MAX_HTTP_ATTEMPTS,
+        backoff_schedule: tuple[float, ...] | None = None,
+    ) -> httpx.Response:
         """POST with exponential backoff on transient failures.
 
         A single 429 used to abort a whole stage run (pilot follow-up #1);
@@ -120,8 +133,12 @@ class LLMClient:
         call_id = new_call_id()
         for attempt in range(max_attempts):
             try:
-                resp = await self._http.post(path, json=gateway_body(
-                    json, service=self._service, call_id=call_id, attempt=attempt + 1))
+                resp = await self._http.post(
+                    path,
+                    json=gateway_body(
+                        json, service=self._service, call_id=call_id, attempt=attempt + 1
+                    ),
+                )
             except httpx.TransportError as exc:
                 last_exc = exc
             else:
@@ -130,11 +147,13 @@ class LLMClient:
                     _record_call_usage(json, resp)
                     return resp
                 last_exc = httpx.HTTPStatusError(
-                    f"HTTP {resp.status_code}", request=resp.request, response=resp)
+                    f"HTTP {resp.status_code}", request=resp.request, response=resp
+                )
             if attempt < max_attempts - 1:
-                delay = (backoff_schedule[attempt] if backoff_schedule
-                        else _BACKOFF_BASE * (2 ** attempt))
-                await asyncio.sleep(delay * (1 + random.random() * 0.25))
+                delay = (
+                    backoff_schedule[attempt] if backoff_schedule else _BACKOFF_BASE * (2**attempt)
+                )
+                await asyncio.sleep(delay * (1 + random.random() * 0.25))  # noqa: S311 — retry jitter, not crypto
         if last_exc is None:
             # Only reachable if max_attempts <= 0 (a caller passing 0, or a
             # backoff_schedule that somehow computed one): the loop never ran,
@@ -143,19 +162,33 @@ class LLMClient:
             raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
         raise last_exc
 
-    async def chat_json(self, model: str, system: str, user: str, schema: dict,
-                        images: list[bytes] | None = None,
-                        backoff_schedule: tuple[float, ...] | None = None) -> dict:
+    async def chat_json(
+        self,
+        model: str,
+        system: str,
+        user: str,
+        schema: dict,
+        images: list[bytes] | None = None,
+        backoff_schedule: tuple[float, ...] | None = None,
+    ) -> dict:
         content: str | list = user
         if images:
             content = [{"type": "text", "text": user}] + [
-                {"type": "image_url", "image_url": {
-                    "url": "data:image/png;base64," + base64.b64encode(img).decode()}}
-                for img in images]
-        messages: list[dict] = [{"role": "system", "content": system},
-                                {"role": "user", "content": content}]
-        body: dict = {"model": model, "response_format": {"type": "json_object"},
-                      "messages": messages}
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64," + base64.b64encode(img).decode()},
+                }
+                for img in images
+            ]
+        messages: list[dict] = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": content},
+        ]
+        body: dict = {
+            "model": model,
+            "response_format": {"type": "json_object"},
+            "messages": messages,
+        }
         last_err: Exception | None = None
         last_raw: str | None = None
         for attempt in range(3):  # blind try, then two corrective retries
@@ -164,14 +197,22 @@ class LLMClient:
                 # feed the failure back — a blind retry usually repeats the same
                 # shape mistake (observed live: three figure-stage deaths on
                 # three different missing fields), a corrected one rarely does
-                attempt_body = {**body, "messages": messages + [
-                    {"role": "assistant", "content": last_raw},
-                    {"role": "user", "content":
-                        "That reply was rejected by the JSON validator: "
-                        f"{str(last_err)[:500]}\n"
-                        "Reply again with corrected JSON only."}]}
-            resp = await self._post_with_backoff("/v1/chat/completions", attempt_body,
-                                                 backoff_schedule=backoff_schedule)
+                attempt_body = {
+                    **body,
+                    "messages": messages
+                    + [
+                        {"role": "assistant", "content": last_raw},
+                        {
+                            "role": "user",
+                            "content": "That reply was rejected by the JSON validator: "
+                            f"{str(last_err)[:500]}\n"
+                            "Reply again with corrected JSON only.",
+                        },
+                    ],
+                }
+            resp = await self._post_with_backoff(
+                "/v1/chat/completions", attempt_body, backoff_schedule=backoff_schedule
+            )
             # content can legitimately be null (safety-filter refusals do this) —
             # coerce to "" so it fails as a normal JSONDecodeError and gets the
             # corrective-retry treatment instead of an uncaught TypeError
@@ -182,11 +223,11 @@ class LLMClient:
                 return out
             except (json.JSONDecodeError, ValidationError) as exc:
                 last_err, last_raw = exc, raw
-        raise LLMOutputError(
-            f"model {model} returned invalid JSON three times: {last_err}")
+        raise LLMOutputError(f"model {model} returned invalid JSON three times: {last_err}")
 
-    async def chat_stream(self, model: str, messages: list[dict],
-                          timeout_s: float = 120.0) -> AsyncIterator[str]:
+    async def chat_stream(
+        self, model: str, messages: list[dict], timeout_s: float = 120.0
+    ) -> AsyncIterator[str]:
         """Streamed chat completion for the student-facing model alias.
 
         Unlike `chat_json`, this is a SINGLE attempt: `_post_with_backoff`'s
@@ -200,9 +241,17 @@ class LLMClient:
         extracted in Task 2) and only the tutor service's Settings carries
         `chat_timeout_s`.
         """
-        body = gateway_body({"model": model, "messages": messages, "stream": True,
-                             "stream_options": {"include_usage": True}},
-                            service=self._service, call_id=new_call_id(), attempt=1)
+        body = gateway_body(
+            {
+                "model": model,
+                "messages": messages,
+                "stream": True,
+                "stream_options": {"include_usage": True},
+            },
+            service=self._service,
+            call_id=new_call_id(),
+            attempt=1,
+        )
         # Accounting for a STREAM is not the same problem as for a single
         # reply: the `usage` block arrives (if at all) in a trailing frame
         # after the last token, so it is only knowable once the iteration is
@@ -214,13 +263,12 @@ class LLMClient:
         streamed_chars = 0
         try:
             async with asyncio.timeout(timeout_s):
-                async with self._http.stream(
-                        "POST", "/v1/chat/completions", json=body) as resp:
+                async with self._http.stream("POST", "/v1/chat/completions", json=body) as resp:
                     resp.raise_for_status()
                     async for line in resp.aiter_lines():
                         if not line.startswith("data:"):
                             continue
-                        data = line[len("data:"):].strip()
+                        data = line[len("data:") :].strip()
                         if not data or data == "[DONE]":
                             continue
                         chunk = json.loads(data)
@@ -238,21 +286,29 @@ class LLMClient:
                             streamed_chars += len(delta)
                             yield delta
         finally:
-            record_usage(usage, estimate=estimate_tokens(
-                _body_chars(body) + streamed_chars))
+            record_usage(usage, estimate=estimate_tokens(_body_chars(body) + streamed_chars))
 
-    async def embed(self, texts: list[str], dimensions: int = 1536,
-                    model: str | None = None,
-                    backoff_schedule: tuple[float, ...] | None = None) -> list[list[float]]:
+    async def embed(
+        self,
+        texts: list[str],
+        dimensions: int = 1536,
+        model: str | None = None,
+        backoff_schedule: tuple[float, ...] | None = None,
+    ) -> list[list[float]]:
         import math
 
         out: list[list[float]] = []
         for i in range(0, len(texts), 64):
-            batch = texts[i:i + 64]
-            resp = await self._post_with_backoff("/v1/embeddings", {
-                "model": model or self._settings.embedding_model,
-                "input": batch, "dimensions": dimensions},
-                backoff_schedule=backoff_schedule)
+            batch = texts[i : i + 64]
+            resp = await self._post_with_backoff(
+                "/v1/embeddings",
+                {
+                    "model": model or self._settings.embedding_model,
+                    "input": batch,
+                    "dimensions": dimensions,
+                },
+                backoff_schedule=backoff_schedule,
+            )
             data = sorted(resp.json()["data"], key=lambda d: d["index"])
             for item in data:
                 v = item["embedding"]
