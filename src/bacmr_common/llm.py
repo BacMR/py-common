@@ -85,6 +85,33 @@ class LLMOutputError(RuntimeError):
     """The model returned unparseable or schema-invalid JSON twice."""
 
 
+def normalize_gateway_base_url(url: str) -> str:
+    """Strip a trailing `/v1` (and trailing slashes) off a model-gateway base URL.
+
+    Every request method below spells the OpenAI-compatible path in full
+    (`/v1/chat/completions`, `/v1/embeddings`), so this base URL must be the
+    ORIGIN only. httpx does not treat that as a detail you can get away with:
+    `AsyncClient(base_url="http://litellm:4000/v1")` turns a request for
+    `/v1/chat/completions` into `http://litellm:4000/v1/v1/chat/completions`,
+    which LiteLLM answers 404 — and a 404 is not in the transient set, so the
+    backoff ladder does not retry it and every ingestion stage that needs a
+    model fails on its first call.
+
+    Normalizing rather than rejecting, because `…:4000/v1` is the form every
+    OpenAI SDK asks for and the form an operator will therefore write. Measured
+    2026-10-04: `MODEL_GATEWAY_URL` in the rendered env for the `bacmr-v2-next`
+    stack was `http://litellm:4000/v1` while all five live containers had
+    `http://litellm:4000`, i.e. the two spellings were already in production
+    side by side with only one of them working. Accepting both makes the key
+    un-mis-settable instead of leaving a 404 waiting for the next
+    `refresh-env.sh` run on the live stack.
+    """
+    trimmed = url.rstrip("/")
+    if trimmed.endswith("/v1"):
+        trimmed = trimmed[: -len("/v1")]
+    return trimmed
+
+
 class LLMClient:
     def __init__(self, settings: Any, transport: httpx.AsyncBaseTransport | None = None):
         # `settings`: any object with `.model_gateway_url` / `.model_gateway_key`
@@ -94,7 +121,7 @@ class LLMClient:
             settings, "usage_service", settings.__class__.__module__.split(".")[0]
         )
         self._http = httpx.AsyncClient(
-            base_url=settings.model_gateway_url,
+            base_url=normalize_gateway_base_url(settings.model_gateway_url),
             transport=transport,
             timeout=120,
             headers={"Authorization": f"Bearer {settings.model_gateway_key}"},

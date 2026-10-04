@@ -3,7 +3,7 @@ import json
 
 import httpx
 import pytest
-from bacmr_common.llm import LLMClient, LLMOutputError
+from bacmr_common.llm import LLMClient, LLMOutputError, normalize_gateway_base_url
 
 SCHEMA = {
     "type": "object",
@@ -617,3 +617,53 @@ def test_accounting_fields_use_litellm_persisted_metadata_container():
     assert saved["stage"] == "figures"
     assert saved["call_id"] == "call-1"
     assert saved["attempt"] == 2
+
+
+# --- model-gateway base URL normalization -----------------------------------
+#
+# Found 2026-10-04 on the `bacmr-v2-next` stack: its rendered env carried
+# MODEL_GATEWAY_URL=http://litellm:4000/v1 while all five live containers
+# carried http://litellm:4000. Every request method here spells the path in
+# full (`/v1/chat/completions`), and httpx appends a relative path to the base
+# URL's path rather than replacing it, so the `/v1` form produced
+# `http://litellm:4000/v1/v1/chat/completions`. LiteLLM answers that 404, and
+# 404 is not in the transient set, so the backoff ladder does not retry -- the
+# first model call of the first ingestion stage simply fails.
+
+
+def test_normalize_strips_a_trailing_v1():
+    assert normalize_gateway_base_url("http://litellm:4000/v1") == "http://litellm:4000"
+    assert normalize_gateway_base_url("http://litellm:4000/v1/") == "http://litellm:4000"
+
+
+def test_normalize_leaves_a_bare_origin_alone():
+    assert normalize_gateway_base_url("http://litellm:4000") == "http://litellm:4000"
+    assert normalize_gateway_base_url("http://litellm:4000/") == "http://litellm:4000"
+
+
+def test_normalize_does_not_eat_a_v1_that_is_part_of_a_longer_path():
+    # A reverse-proxy prefix must survive; only a trailing `/v1` SEGMENT goes.
+    assert normalize_gateway_base_url("https://x/gw/v1") == "https://x/gw"
+    assert normalize_gateway_base_url("https://x/v1beta") == "https://x/v1beta"
+
+
+@pytest.mark.parametrize("configured", ["http://litellm:4000", "http://litellm:4000/v1"])
+def test_both_spellings_reach_the_same_completions_url(configured):
+    """The property that actually matters: one request URL, either way in."""
+
+    class _S:
+        model_gateway_url = configured
+        model_gateway_key = "sk-test"
+        usage_service = "test"
+
+    client = LLMClient(_S())
+    # `build_request` applies the same base-URL merge a real send would, with no
+    # socket involved -- the double-/v1 bug was purely in that merge.
+    assert (
+        str(client._http.build_request("POST", "/v1/chat/completions").url)
+        == "http://litellm:4000/v1/chat/completions"
+    )
+    assert (
+        str(client._http.build_request("POST", "/v1/embeddings").url)
+        == "http://litellm:4000/v1/embeddings"
+    )
