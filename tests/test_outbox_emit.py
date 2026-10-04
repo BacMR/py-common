@@ -1,11 +1,17 @@
 import uuid
 
+import _env
 import pytest
 import sqlalchemy as sa
 from bacmr_common.outbox import emit, outbox_ddl
 from sqlalchemy.ext.asyncio import create_async_engine
 
-DSN = "postgresql+asyncpg://knowledge_svc:knowledge_dev@127.0.0.1:5433/bacmr"
+# Same resolver as the other integration modules here: itest defaults, and the
+# production engine refused outright. This TRUNCATEs content.outbox.
+# The DSN names its ROLE here: only `knowledge_svc` may create and TRUNCATE in
+# `content` (`tutor_svc` is denied -- deploy/tests/test_db_isolation.py pins that),
+# so TEST_DATABASE_URL carries the server and each suite names the role it needs.
+DSN = _env.role_dsn("knowledge_svc", "knowledge_dev")
 pytestmark = pytest.mark.integration
 
 
