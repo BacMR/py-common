@@ -1,4 +1,5 @@
 import pytest
+
 from bacmr_common._sql import validate_schema_ident
 
 

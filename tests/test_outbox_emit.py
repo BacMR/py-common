@@ -1,10 +1,11 @@
 import uuid
 
-import _env
 import pytest
 import sqlalchemy as sa
-from bacmr_common.outbox import emit, outbox_ddl
 from sqlalchemy.ext.asyncio import create_async_engine
+
+import _env
+from bacmr_common.outbox import emit, outbox_ddl
 
 # Same resolver as the other integration modules here: itest defaults, and the
 # production engine refused outright. This TRUNCATEs content.outbox.

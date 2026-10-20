@@ -16,8 +16,9 @@ import inspect
 import re
 from pathlib import Path
 
-import _env
 import pytest
+
+import _env
 from _env import (
     DENIED_AMQP_PORTS,
     DENIED_PORTS,
@@ -391,7 +392,8 @@ def _integration_modules_outside_this_directory() -> list[Path]:
         for path in sorted((REPO / suite).glob("test_*.py"))
         if "pytest.mark.integration" in path.read_text(encoding="utf-8")
     ]
-    assert found, "the globs above stopped matching anything"
+    # In the monorepo these sibling suites existed; after extraction they live in
+    # other repos, so this parametrisation is empty (pytest skips it) here.
     return found
 
 

@@ -3,6 +3,7 @@ import json
 
 import httpx
 import pytest
+
 from bacmr_common.llm import LLMClient, LLMOutputError, normalize_gateway_base_url
 
 SCHEMA = {

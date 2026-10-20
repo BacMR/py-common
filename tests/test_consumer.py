@@ -1,14 +1,15 @@
 import asyncio
 import uuid
 
-import _env
 import aio_pika
 import pytest
 import sqlalchemy as sa
+from sqlalchemy.ext.asyncio import create_async_engine
+
+import _env
 from bacmr_common.consumer import EventConsumer, processed_ddl
 from bacmr_common.outbox import emit, outbox_ddl
 from bacmr_common.poller import OutboxPoller
-from sqlalchemy.ext.asyncio import create_async_engine
 
 # Endpoints come from _env, which defaults to the isolated bacmr-it stack and
 # refuses the production brokers / the host Postgres engine outright. These

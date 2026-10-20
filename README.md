@@ -14,4 +14,30 @@
 
 **Provenance:** extracted from `archive-backend/libs/py-common`.
 
-**Status (2026-10-20):** scaffold; extraction PR pending.
+**Status (2026-10-20):** extracted with history from `archive-backend` (`libs/py-common` + `contracts/py`); version `0.1.0`. Tag `v0.1.0` is cut on `dev` after this PR merges. CI: ruff + pytest (integration tests are opt-in, see below).
+
+## Usage
+
+Packages (distribution `bacmr-py-common`, Python >= 3.13):
+
+| Module | Purpose |
+|---|---|
+| `bacmr_common.llm` | LiteLLM client wrapper |
+| `bacmr_common.outbox` | transactional outbox `emit` + DDL |
+| `bacmr_common.poller` | outbox poller publishing to RabbitMQ |
+| `bacmr_common.consumer` | idempotent event consumer (`processed` ledger) |
+| `bacmr_common.usage`, `.subjects`, `._sql` | usage tally, subject-profile table, SQL identifier guard |
+| `bacmr_contracts` | event envelope + JSON schemas (`make_envelope`, `validate_event`) |
+
+```bash
+uv sync
+uv run ruff check .
+uv run pytest -q          # unit tests; `-m integration` needs the isolated bacmr-it stack (see tests/_env.py)
+```
+
+Install in a service: `bacmr-py-common @ git+ssh://git@bacmr-py-common/BacMR/py-common.git@v0.1.0`.
+
+### Extraction notes
+
+- `bacmr_contracts` (monorepo `contracts/py`) is vendored here because `outbox` imports it and it has no other consumer yet; its history is carried too.
+- Tests that need the sibling services (`bacmr_knowledge`, `bacmr_tutor`) skip when those are not installed; the cross-suite endpoint-guard scan in `tests/test_env_guard.py` is empty here.

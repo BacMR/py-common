@@ -5,6 +5,7 @@ siblings in test_consumer.py/test_poller.py/test_outbox_emit.py they don't need 
 compose stack and aren't marked `integration`."""
 
 import pytest
+
 from bacmr_common.consumer import EventConsumer, processed_ddl
 from bacmr_common.outbox import outbox_ddl
 from bacmr_common.poller import OutboxPoller

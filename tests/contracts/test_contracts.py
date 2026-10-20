@@ -2,6 +2,7 @@ import uuid
 
 import jsonschema
 import pytest
+
 from bacmr_contracts.validate import make_envelope, validate_event
 
 GOOD_MESSAGE = {

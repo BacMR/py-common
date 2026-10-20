@@ -17,6 +17,7 @@ duplication.
 """
 
 import pytest
+
 from bacmr_common import subjects
 from bacmr_common.subjects import GENERIC, HUMANITIES, STEM, profile_for_subject
 
@@ -97,6 +98,8 @@ def test_both_services_resolve_through_the_shared_table(monkeypatch):
     """The functional proof, not a structural one: a key added HERE must be
     visible to both services' lookups. Asserting that each module imports the
     right name would pass just as happily against a re-pasted copy."""
+    pytest.importorskip("bacmr_knowledge")  # sibling services; not in this repo
+    pytest.importorskip("bacmr_tutor")
     from bacmr_knowledge import enrich
     from bacmr_tutor.prompts import subjects as tutor_subjects
 
@@ -110,6 +113,7 @@ def test_both_services_resolve_through_the_shared_table(monkeypatch):
 def test_retrieval_resolves_through_the_shared_table_too(monkeypatch):
     """§2's own consumer: the retrieval profile lookup is the third caller,
     and the reason the table was consolidated at all."""
+    pytest.importorskip("bacmr_knowledge")  # sibling service; not in this repo
     from bacmr_knowledge import retrieval
 
     monkeypatch.setitem(subjects.SUBJECT_PROFILES, "astronomie", STEM)
@@ -126,6 +130,8 @@ def test_the_three_callers_defaults_are_each_their_own():
     * retrieval -> GENERIC: equal weights, i.e. today's behaviour, for every
       request whose subject nobody has evaluated.
     """
+    pytest.importorskip("bacmr_knowledge")  # sibling services; not in this repo
+    pytest.importorskip("bacmr_tutor")
     from bacmr_knowledge import enrich, retrieval
     from bacmr_tutor.prompts import subjects as tutor_subjects
 
