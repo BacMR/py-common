@@ -218,7 +218,7 @@ class LLMClient:
             "response_format": {"type": "json_object"},
             "messages": messages,
         }
-        if tags:
+        if tags is not None:
             body = tags.apply_to_body(body)
         last_err: Exception | None = None
         last_raw: str | None = None
@@ -282,7 +282,7 @@ class LLMClient:
             "stream": True,
             "stream_options": {"include_usage": True},
         }
-        if tags:
+        if tags is not None:
             stream_body = tags.apply_to_body(stream_body)
         body = gateway_body(
             stream_body,
@@ -346,7 +346,7 @@ class LLMClient:
             }
             resp = await self._post_with_backoff(
                 "/v1/embeddings",
-                tags.apply_to_body(req) if tags else req,
+                tags.apply_to_body(req) if tags is not None else req,
                 backoff_schedule=backoff_schedule,
             )
             data = sorted(resp.json()["data"], key=lambda d: d["index"])
