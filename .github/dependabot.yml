@@ -1,0 +1,23 @@
+version: 2
+# Monthly + grouped by update-type (CI-minute budget; see BacMR/landing-site).
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    target-branch: "dev"
+    schedule: { interval: "monthly", time: "07:00", timezone: "Africa/Nouakchott" }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      patch: { update-types: ["patch"] }
+      minor: { update-types: ["minor"] }
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "dev"
+    schedule: { interval: "monthly", time: "07:30", timezone: "Africa/Nouakchott" }
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      patch: { update-types: ["patch"] }
+      minor: { update-types: ["minor"] }

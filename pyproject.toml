@@ -1,0 +1,51 @@
+[project]
+name = "bacmr-py-common"
+version = "0.1.0"
+description = "Shared Python library for BacMR services (settings, outbox, LiteLLM client, RabbitMQ helpers, event contracts)"
+requires-python = ">=3.12"
+dependencies = [
+  "sqlalchemy[asyncio]>=2.1.4",
+  "asyncpg>=0.30",
+  "aio-pika>=10.1.0",
+  "pydantic>=2.13.5",
+  "pydantic-settings>=2.6",
+  "httpx>=0.27",
+  "jsonschema>=4.23",
+  # bacmr_contracts (vendored in this repo, see README) needs this one.
+  "rfc3339-validator>=0.1",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.24",
+  "ruff>=0.16.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bacmr_common", "src/bacmr_contracts"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "S", "C4", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
+"**/test_*.py" = ["S"]
+# Moved library code stays byte-identical to archive-backend (extract, never rewrite).
+"src/bacmr_common/outbox.py" = ["I001"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = ["integration: needs the compose stack running"]
+# tests/_env.py (endpoint guard) is imported as a top-level module.
+pythonpath = ["tests"]
+addopts = "-m 'not integration'"

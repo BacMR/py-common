@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tutor.session.ended.v1.json",
+  "type": "object",
+  "required": ["session_id", "student_id", "message_count"],
+  "properties": {
+    "session_id": {"type": "string", "format": "uuid"},
+    "student_id": {"type": "string"},
+    "message_count": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ingestion.job.failed.v1.json",
+  "type": "object",
+  "required": ["job_id", "job_type", "error"],
+  "properties": {
+    "job_id": {"type": "string", "format": "uuid"},
+    "job_type": {"type": "string"},
+    "document_id": {"type": ["string", "null"]},
+    "error": {"type": "string"}
+  },
+  "additionalProperties": false
+}
