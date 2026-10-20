@@ -46,8 +46,10 @@ Every LLM call through LiteLLM carries labels (ruling R7, BacMR/docs#23). Per-se
 from bacmr_common.accounting import CallTags
 
 tags = CallTags("tutor-api", "chat", request_id, plan_tier="premium", user_id=profile_id)
-await llm.chat_json(model, system, user, schema, tags=tags)   # also chat_stream / embed
-await llm.embed(texts, tags=CallTags.system("knowledge-worker", "embed"))  # system work: uuid4 id, no user
+await llm.chat_json(model, system, user, schema, tags=tags)  # also chat_stream / embed
+await llm.embed(
+    texts, tags=CallTags.system("knowledge-worker", "embed")
+)  # system work: uuid4 id, no user
 ```
 
 Request fields: `user` = student profile id (omitted for system work); `metadata.tags = [service, plan_tier, request_id, purpose]` (exact order; `request_id` is the gateway-minted `X-Request-Id`). LiteLLM records them as `end_user` / `request_tags`. Allowed values: service in `gateway|tutor-api|knowledge-api|knowledge-worker|scraper`; plan_tier in `free|standard|premium|system`; purpose in `chat|understanding|sufficiency|summary|retrieve-rescue|ingest-text|ingest-vision|ingest-enrich|embed|rerank|moderation`; anything else raises `ValueError`. `tags` is optional on the client; `bacmr_common.usage` still appends its own `consumption:`/`service:`/`operation:` tags after these four, and an explicit `user` in the body wins over the usage-context actor.
