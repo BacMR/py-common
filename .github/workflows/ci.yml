@@ -14,3 +14,21 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run pytest -q
+
+  # Aggregate status for the org ruleset: the single check name `gate` is what
+  # gets required, so adding/renaming jobs here never needs a ruleset edit.
+  # Every needed job must be `success`; none is path-filtered or conditional, so
+  # `skipped` is treated as a failure (a skipped job means the gate did not run).
+  gate:
+    name: gate
+    if: always()
+    needs: [test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every needed job to succeed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
