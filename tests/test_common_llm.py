@@ -668,3 +668,72 @@ def test_both_spellings_reach_the_same_completions_url(configured):
         str(client._http.build_request("POST", "/v1/embeddings").url)
         == "http://litellm:4000/v1/embeddings"
     )
+
+
+def _capture(calls):
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        calls.append(body)
+        if request.url.path == "/v1/embeddings":
+            return httpx.Response(200, json={"data": [{"index": 0, "embedding": [1.0, 0.0]}]})
+        return httpx.Response(200, json=_completion('{"answer": "ok"}'))
+
+    return httpx.MockTransport(handler)
+
+
+async def test_chat_json_tags_put_user_and_tags_in_body():
+    from bacmr_common.accounting import CallTags
+
+    calls: list[dict] = []
+    client = LLMClient(_settings(), transport=_capture(calls))
+    tags = CallTags("tutor-api", "chat", "req-1", plan_tier="free", user_id="prof-1")
+    await client.chat_json("m", "s", "u", SCHEMA, tags=tags)
+    assert calls[0]["user"] == "prof-1"
+    assert calls[0]["metadata"]["tags"][:4] == ["tutor-api", "free", "req-1", "chat"]
+
+
+async def test_embed_tags_and_untagged_body_unchanged():
+    from bacmr_common.accounting import CallTags
+
+    calls: list[dict] = []
+    client = LLMClient(_settings(), transport=_capture(calls))
+    await client.embed(["a"])
+    await client.embed(["a"], tags=CallTags.system("knowledge-worker", "embed"))
+    plain, tagged = calls
+    assert plain["user"].startswith("system:")
+    assert not any(t in plain["metadata"]["tags"] for t in ("embed", "system"))
+    assert tagged["metadata"]["tags"][:4][0] == "knowledge-worker"
+    assert tagged["metadata"]["tags"][3] == "embed"
+    assert tagged["user"].startswith("system:")  # system work: no student user
+
+
+def test_apply_to_body_preserves_caller_metadata():
+    from bacmr_common.accounting import CallTags
+
+    body = {"model": "m", "metadata": {"tags": ["old"], "trace": "x"}}
+    out = CallTags("gateway", "summary", "r").apply_to_body(body)
+    assert out["metadata"] == {"tags": ["gateway", "system", "r", "summary"], "trace": "x"}
+    assert body["metadata"]["tags"] == ["old"]  # input not mutated
+
+
+async def test_chat_stream_tagged_body():
+    from bacmr_common.accounting import CallTags
+
+    calls: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(json.loads(request.content))
+        return httpx.Response(
+            200, text='data: {"choices": [{"delta": {"content": "x"}}]}\n\ndata: [DONE]\n\n'
+        )
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    tags = CallTags("tutor-api", "chat", "rq", plan_tier="standard", user_id="prof-2")
+    out = [t async for t in client.chat_stream("m", [{"role": "user", "content": "hi"}], tags=tags)]
+    assert out == ["x"]
+    assert calls[0]["user"] == "prof-2"
+    assert calls[0]["metadata"]["tags"][:4] == ["tutor-api", "standard", "rq", "chat"]
+    calls.clear()
+    _ = [t async for t in client.chat_stream("m", [{"role": "user", "content": "hi"}])]
+    assert calls[0]["user"].startswith("system:")
+    assert "chat" not in calls[0]["metadata"]["tags"]

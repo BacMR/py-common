@@ -26,6 +26,7 @@ Packages (distribution `bacmr-py-common`, Python >= 3.12):
 | `bacmr_common.outbox` | transactional outbox `emit` + DDL |
 | `bacmr_common.poller` | outbox poller publishing to RabbitMQ |
 | `bacmr_common.consumer` | idempotent event consumer (`processed` ledger) |
+| `bacmr_common.accounting` | `CallTags`: `user` + `metadata.tags` labels for every LiteLLM call |
 | `bacmr_common.usage`, `.subjects`, `._sql` | usage tally, subject-profile table, SQL identifier guard |
 | `bacmr_contracts` | event envelope + JSON schemas (`make_envelope`, `validate_event`) |
 
@@ -36,6 +37,22 @@ uv run pytest -q          # unit tests; `-m integration` needs the isolated bacm
 ```
 
 Install in a service: `bacmr-py-common @ git+ssh://git@bacmr-py-common/BacMR/py-common.git@v0.1.0`.
+
+### Accounting labels
+
+Every LLM call through LiteLLM carries labels (ruling R7, BacMR/docs#23). Per-service virtual keys say *which service* spent; per-call tags say *for whom and why*, so `LiteLLM_SpendLogs` can be sliced by service, plan tier and purpose. The gateway is the only wallet charger: these labels are accounting, never billing.
+
+```python
+from bacmr_common.accounting import CallTags
+
+tags = CallTags("tutor-api", "chat", request_id, plan_tier="premium", user_id=profile_id)
+await llm.chat_json(model, system, user, schema, tags=tags)  # also chat_stream / embed
+await llm.embed(
+    texts, tags=CallTags.system("knowledge-worker", "embed")
+)  # system work: uuid4 id, no user
+```
+
+Request fields: `user` = student profile id (omitted for system work); `metadata.tags = [service, plan_tier, request_id, purpose]` (exact order; `request_id` is the gateway-minted `X-Request-Id`). LiteLLM records them as `end_user` / `request_tags`. Allowed values: service in `gateway|tutor-api|knowledge-api|knowledge-worker|scraper`; plan_tier in `free|standard|premium|system`; purpose in `chat|understanding|sufficiency|summary|retrieve-rescue|ingest-text|ingest-vision|ingest-enrich|embed|rerank|moderation`; anything else raises `ValueError`. `tags` is optional on the client; `bacmr_common.usage` still appends its own `consumption:`/`service:`/`operation:` tags after these four, and an explicit `user` in the body (i.e. `user_id`) overrides the usage-context actor, so only authenticated boundaries (gateway/tutor-api after verifying the session) may set `user_id`. When `tags` is passed it replaces any caller-supplied `metadata.tags`; other metadata keys are kept.
 
 ### Extraction notes
 
