@@ -1,0 +1,245 @@
+name: dependabot-auto-merge
+run-name: >-
+  Dependabot auto-merge — PR #${{ github.event.pull_request.number }}
+  (${{ github.event.pull_request.title }})
+
+# Tier 1 auto-merge: let routine dependency bumps land without hand-holding,
+# while keeping a human in the loop for everything that green CI cannot
+# actually validate.
+#
+# What this does NOT do, on purpose:
+#   * It never merges anything itself. It only asks GitHub to enable auto-merge
+#     (`gh pr merge --auto`), which merges the PR *after* every required status
+#     check passes. If a required check fails, the PR just sits there.
+#   * It never approves. The `production` ruleset requires 0 approving reviews,
+#     and the org has "Allow GitHub Actions to create and approve pull requests"
+#     switched OFF, so an approve step would fail anyway.
+#   * It never automates a major. See the decision step for the full rationale.
+#
+# Permissions note: workflows triggered by Dependabot normally receive a
+# READ-ONLY GITHUB_TOKEN, and the org's default workflow permission is `read`.
+# The explicit `permissions:` block below is what raises the token to write for
+# this run — without it, `gh pr merge` fails with 403. Dependabot runs also read
+# from a SEPARATE secret store (Actions secrets are invisible here), which is
+# why this workflow uses nothing but the built-in GITHUB_TOKEN.
+on:
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: write # enable auto-merge / squash-merge the PR
+  pull-requests: write # comment on, and merge, the PR
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  auto-merge:
+    name: dependabot-auto-merge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    # Two guards, not one. `github.actor` is who triggered THIS run, and
+    # `pull_request.user.login` is who opened the PR. Requiring both means a
+    # human pushing a commit onto a Dependabot branch (actor becomes the human)
+    # and a Dependabot-actor event on a human-authored PR are each excluded.
+    if: >-
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.user.login == 'dependabot[bot]'
+
+    steps:
+      # Pinned to a commit SHA, not a floating tag: this workflow can merge code,
+      # so a tag repoint in a third-party action would be a direct path into the
+      # default branch. v3.1.0 = 25dd0e34f4fe68f24cc83900b1fe3fe149efef98.
+      # (GitHub's own docs example pins d7267f60…, which is the much older
+      # v2.3.0 — do not copy that pin.)
+      #
+      # fetch-metadata only populates its outputs when the PR was opened by
+      # Dependabot AND carries only Dependabot commits. A human commit on the
+      # branch makes this step fail, which is a safety property worth keeping.
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide whether this bump may auto-merge
+        id: decide
+        env:
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DEPENDENCY_TYPE: ${{ steps.meta.outputs.dependency-type }}
+          DEPENDENCY_NAMES: ${{ steps.meta.outputs.dependency-names }}
+          ECOSYSTEM: ${{ steps.meta.outputs.package-ecosystem }}
+        run: |
+          set -euo pipefail
+
+          # Packages where a green test suite is NOT evidence that the bump is
+          # safe, because the risky behaviour is typically mocked out in tests.
+          # Precedent in this org: `jose` 4.15.9 -> 6.2.12 merged green while
+          # jwks.service.spec.ts says in its own header that `createRemoteJWKSet`
+          # "is mocked out entirely" — the suite structurally could not detect a
+          # breaking change. Categories: auth/identity, JWT, crypto, money, and
+          # database drivers.
+          #
+          # Short, collision-prone tokens (pg, jwt, iap) are matched on a
+          # delimiter boundary so `pg` does not fire on `sharp` or `ffmpeg`.
+          SENSITIVE='(^|[^a-z0-9])(jose|jsonwebtoken|jwks|jwt|pyjwt|python-jose|passport|oidc|openid|oauth|oauth2|auth0|next-auth|authlib|zitadel|keycloak|msal|bcrypt|argon2|scrypt|nacl|libsodium|sodium|openssl|cryptography|crypto|jsrsasign|node-forge|stripe|paypal|braintree|revenuecat|in_app_purchase|iap|pg|postgres|postgresql|psycopg|asyncpg|pgvector|mysql|mariadb|sqlite|prisma|typeorm|sequelize|mongoose|sqlalchemy|alembic|flyway)([^a-z0-9]|$)'
+
+          merge=false
+          reason=""
+          sensitive_hits=""
+
+          # Normalise: fetch-metadata returns a comma-separated list.
+          names_lc=$(printf '%s' "${DEPENDENCY_NAMES:-}" | tr '[:upper:]' '[:lower:]')
+          IFS=',' read -r -a name_arr <<< "$names_lc" || true
+          for raw in "${name_arr[@]:-}"; do
+            n=$(printf '%s' "$raw" | xargs || true)
+            [ -z "$n" ] && continue
+            if printf '%s' "$n" | grep -qE "$SENSITIVE"; then
+              sensitive_hits="${sensitive_hits:+$sensitive_hits, }$n"
+            fi
+          done
+
+          case "${UPDATE_TYPE:-}" in
+            version-update:semver-patch)
+              if [ -n "$sensitive_hits" ]; then
+                # A patch on a security-critical package is normally exactly the
+                # fix you want landing fast, and a patch must not change public
+                # behaviour. Automated, but named in the summary so it is easy
+                # to audit after the fact.
+                merge=true
+                reason="patch bump; security-sensitive package(s) ($sensitive_hits) — patches do not change documented behaviour, so automated, but flagged for audit"
+              else
+                merge=true
+                reason="patch bump of a non-sensitive dependency"
+              fi
+              ;;
+            version-update:semver-minor)
+              if [ -n "$sensitive_hits" ]; then
+                merge=false
+                reason="MINOR bump touching security-sensitive package(s): $sensitive_hits. A minor can change defaults in auth/JWT/crypto/money/database-driver code, and this repo's suites mock exactly those boundaries, so green CI is not validation. Needs a human."
+              else
+                merge=true
+                reason="minor bump of a non-sensitive dependency"
+              fi
+              ;;
+            version-update:semver-major)
+              merge=false
+              reason="MAJOR bump. Never automated: a major is where breaking changes are allowed to live, and a passing suite only proves the suite still passes."
+              ;;
+            "")
+              merge=false
+              reason="Dependabot reported no update-type for this PR (this happens on some ecosystems and on grouped/lockfile-only updates). Refusing to automate a bump that cannot be classified."
+              ;;
+            *)
+              merge=false
+              reason="unrecognised update-type '${UPDATE_TYPE}' — refusing to automate something this workflow does not understand."
+              ;;
+          esac
+
+          {
+            echo "merge=$merge"
+            echo "reason=$reason"
+            echo "sensitive=$sensitive_hits"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Dependabot auto-merge decision"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Decision | **$([ "$merge" = "true" ] && echo "auto-merge enabled" || echo "left for a human")** |"
+            echo "| Update type | \`${UPDATE_TYPE:-<none reported>}\` |"
+            echo "| Dependency type | \`${DEPENDENCY_TYPE:-n/a}\` |"
+            echo "| Ecosystem | \`${ECOSYSTEM:-n/a}\` |"
+            echo "| Dependencies | \`${DEPENDENCY_NAMES:-n/a}\` |"
+            echo "| Security-sensitive match | ${sensitive_hits:-none} |"
+            echo
+            echo "**Reason:** $reason"
+            echo
+            echo "_Auto-merge waits for every required status check. It does not bypass CI._"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "decision: merge=$merge — $reason"
+
+      - name: Enable auto-merge
+        if: steps.decide.outputs.merge == 'true'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REASON: ${{ steps.decide.outputs.reason }}
+        run: |
+          set -euo pipefail
+          # --auto queues the merge behind the required status checks; --squash
+          # matches this org's merge convention. This never merges immediately.
+          #
+          # Retried because enabling auto-merge races the checks: GitHub refuses
+          # to arm auto-merge on a PR that is already mergeable, and there is a
+          # known intermittent 422 on enablement. If it still will not arm, fail
+          # loudly rather than leaving a PR that looks handled but is not.
+          for attempt in 1 2 3 4 5; do
+            if err=$(gh pr merge --auto --squash "$PR_URL" 2>&1); then
+              echo "auto-merge enabled on attempt $attempt"
+              echo "✅ Auto-merge enabled — will squash once required checks pass." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "attempt $attempt failed: $err"
+            last_err="$err"
+            sleep $((attempt * 15))
+          done
+
+          {
+            echo
+            echo "### ⚠️ Could not enable auto-merge"
+            echo
+            echo "The bump qualified ($REASON) but GitHub refused to arm auto-merge after 5 attempts:"
+            echo
+            echo '```'
+            echo "${last_err:-unknown error}"
+            echo '```'
+            echo
+            echo "The PR has been left open and unmerged. Nothing was merged without checks."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::could not enable auto-merge: ${last_err:-unknown error}"
+          exit 1
+
+      # Majors and security-sensitive minors are left for a human, and the queue
+      # should say so itself rather than looking silently ignored. Commented once
+      # per PR — the marker keeps re-runs and pushes from spamming the thread.
+      - name: Explain why this bump was not automated
+        if: steps.decide.outputs.merge != 'true'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REASON: ${{ steps.decide.outputs.reason }}
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DEPENDENCY_NAMES: ${{ steps.meta.outputs.dependency-names }}
+          MARKER: "<!-- bacmr-auto-merge-skip -->"
+        run: |
+          set -euo pipefail
+          if gh pr view "$PR_URL" --json comments \
+               --jq '[.comments[].body] | join("\n")' 2>/dev/null | grep -qF "$MARKER"; then
+            echo "skip-notice already present; not commenting again"
+            exit 0
+          fi
+
+          cat > /tmp/body.md <<EOF
+          $MARKER
+          **Not auto-merged — needs a human.**
+
+          | Field | Value |
+          | --- | --- |
+          | Update type | \`${UPDATE_TYPE:-<none reported>}\` |
+          | Dependencies | \`${DEPENDENCY_NAMES:-n/a}\` |
+
+          $REASON
+
+          Tier 1 automation covers **patch** and **minor** bumps of dependencies
+          that are not auth/JWT/crypto/money/database-driver packages. Everything
+          else is reviewed by hand, because a passing suite proves the suite still
+          passes — not that the upgrade is safe. Review, then merge normally.
+          EOF
+
+          gh pr comment "$PR_URL" --body-file /tmp/body.md
+          echo "posted skip notice"
