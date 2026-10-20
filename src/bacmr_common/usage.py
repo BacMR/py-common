@@ -90,7 +90,12 @@ def gateway_body(body: dict, *, service: str, call_id: str, attempt: int) -> dic
     }
     # LiteLLM's native trace/session field groups all calls for one tutor turn/job.
     trace_id = ctx.get("request_id") or ctx.get("job_id") or call_id
-    return {**body, "user": actor, "metadata": metadata, "litellm_trace_id": trace_id}
+    return {
+        **body,
+        "user": body.get("user", actor),
+        "metadata": metadata,
+        "litellm_trace_id": trace_id,
+    }
 
 
 def propagation_headers() -> dict[str, str]:

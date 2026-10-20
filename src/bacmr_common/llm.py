@@ -22,6 +22,7 @@ from typing import Any
 import httpx
 from jsonschema import Draft202012Validator, ValidationError
 
+from bacmr_common.accounting import CallTags
 from bacmr_common.usage import estimate_tokens, gateway_body, new_call_id, record_usage
 
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
@@ -197,6 +198,7 @@ class LLMClient:
         schema: dict,
         images: list[bytes] | None = None,
         backoff_schedule: tuple[float, ...] | None = None,
+        tags: CallTags | None = None,
     ) -> dict:
         content: str | list = user
         if images:
@@ -216,6 +218,8 @@ class LLMClient:
             "response_format": {"type": "json_object"},
             "messages": messages,
         }
+        if tags:
+            body = tags.apply_to_body(body)
         last_err: Exception | None = None
         last_raw: str | None = None
         for attempt in range(3):  # blind try, then two corrective retries
@@ -253,7 +257,11 @@ class LLMClient:
         raise LLMOutputError(f"model {model} returned invalid JSON three times: {last_err}")
 
     async def chat_stream(
-        self, model: str, messages: list[dict], timeout_s: float = 120.0
+        self,
+        model: str,
+        messages: list[dict],
+        timeout_s: float = 120.0,
+        tags: CallTags | None = None,
     ) -> AsyncIterator[str]:
         """Streamed chat completion for the student-facing model alias.
 
@@ -268,13 +276,16 @@ class LLMClient:
         extracted in Task 2) and only the tutor service's Settings carries
         `chat_timeout_s`.
         """
+        stream_body: dict = {
+            "model": model,
+            "messages": messages,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        if tags:
+            stream_body = tags.apply_to_body(stream_body)
         body = gateway_body(
-            {
-                "model": model,
-                "messages": messages,
-                "stream": True,
-                "stream_options": {"include_usage": True},
-            },
+            stream_body,
             service=self._service,
             call_id=new_call_id(),
             attempt=1,
@@ -321,19 +332,21 @@ class LLMClient:
         dimensions: int = 1536,
         model: str | None = None,
         backoff_schedule: tuple[float, ...] | None = None,
+        tags: CallTags | None = None,
     ) -> list[list[float]]:
         import math
 
         out: list[list[float]] = []
         for i in range(0, len(texts), 64):
             batch = texts[i : i + 64]
+            req = {
+                "model": model or self._settings.embedding_model,
+                "input": batch,
+                "dimensions": dimensions,
+            }
             resp = await self._post_with_backoff(
                 "/v1/embeddings",
-                {
-                    "model": model or self._settings.embedding_model,
-                    "input": batch,
-                    "dimensions": dimensions,
-                },
+                tags.apply_to_body(req) if tags else req,
                 backoff_schedule=backoff_schedule,
             )
             data = sorted(resp.json()["data"], key=lambda d: d["index"])

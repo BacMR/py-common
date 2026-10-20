@@ -668,3 +668,49 @@ def test_both_spellings_reach_the_same_completions_url(configured):
         str(client._http.build_request("POST", "/v1/embeddings").url)
         == "http://litellm:4000/v1/embeddings"
     )
+
+
+def _capture(calls):
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        calls.append(body)
+        if request.url.path == "/v1/embeddings":
+            return httpx.Response(200, json={"data": [{"index": 0, "embedding": [1.0, 0.0]}]})
+        return httpx.Response(200, json=_completion('{"answer": "ok"}'))
+
+    return httpx.MockTransport(handler)
+
+
+async def test_chat_json_tags_put_user_and_tags_in_body():
+    from bacmr_common.accounting import CallTags
+
+    calls: list[dict] = []
+    client = LLMClient(_settings(), transport=_capture(calls))
+    tags = CallTags("tutor-api", "chat", "req-1", plan_tier="free", user_id="prof-1")
+    await client.chat_json("m", "s", "u", SCHEMA, tags=tags)
+    assert calls[0]["user"] == "prof-1"
+    assert calls[0]["metadata"]["tags"][:4] == ["tutor-api", "free", "req-1", "chat"]
+
+
+async def test_embed_tags_and_untagged_body_unchanged():
+    from bacmr_common.accounting import CallTags
+
+    calls: list[dict] = []
+    client = LLMClient(_settings(), transport=_capture(calls))
+    await client.embed(["a"])
+    await client.embed(["a"], tags=CallTags.system("knowledge-worker", "embed"))
+    plain, tagged = calls
+    assert plain["user"] == "system:bacmr_common" or plain["user"].startswith("system:")
+    assert not any(t in plain["metadata"]["tags"] for t in ("embed", "system"))
+    assert tagged["metadata"]["tags"][:4][0] == "knowledge-worker"
+    assert tagged["metadata"]["tags"][3] == "embed"
+    assert tagged["user"].startswith("system:")  # system work: no student user
+
+
+def test_apply_to_body_preserves_caller_metadata():
+    from bacmr_common.accounting import CallTags
+
+    body = {"model": "m", "metadata": {"tags": ["old"], "trace": "x"}}
+    out = CallTags("gateway", "summary", "r").apply_to_body(body)
+    assert out["metadata"] == {"tags": ["gateway", "system", "r", "summary"], "trace": "x"}
+    assert body["metadata"]["tags"] == ["old"]  # input not mutated
