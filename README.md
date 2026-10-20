@@ -8,7 +8,7 @@
 - logging / request-id / tracing middleware
 - event envelope + RabbitMQ publisher/consumer helpers for `bacmr.events`
 
-**Does not own:** any business logic, any schema.
+**Does not own:** any business logic, any database schema (the vendored `bacmr_contracts` JSON schemas are message contracts, not DB schemas).
 
 **Versioning:** semantic version git tags (`v0.1.0`…); services pin `bacmr-py-common @ git+https://github.com/BacMR/py-common@vX.Y.Z`. A change here is released by tag **before** the service PR that needs it.
 
@@ -18,7 +18,7 @@
 
 ## Usage
 
-Packages (distribution `bacmr-py-common`, Python >= 3.13):
+Packages (distribution `bacmr-py-common`, Python >= 3.12):
 
 | Module | Purpose |
 |---|---|

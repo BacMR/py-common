@@ -2,7 +2,7 @@
 name = "bacmr-py-common"
 version = "0.1.0"
 description = "Shared Python library for BacMR services (settings, outbox, LiteLLM client, RabbitMQ helpers, event contracts)"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
   "sqlalchemy[asyncio]>=2.1.4",
   "asyncpg>=0.30",
@@ -31,7 +31,7 @@ packages = ["src/bacmr_common", "src/bacmr_contracts"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py313"
+target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -40,6 +40,8 @@ select = ["E4", "E7", "E9", "F", "I", "B", "UP", "S", "C4", "SIM"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S"]
 "**/test_*.py" = ["S"]
+# Moved library code stays byte-identical to archive-backend (extract, never rewrite).
+"src/bacmr_common/outbox.py" = ["I001"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

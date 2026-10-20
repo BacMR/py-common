@@ -5,10 +5,10 @@ import json
 import uuid
 
 import sqlalchemy as sa
+from bacmr_contracts import make_envelope
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from bacmr_common._sql import validate_schema_ident
-from bacmr_contracts import make_envelope
 
 
 def outbox_ddl(schema: str) -> str:
