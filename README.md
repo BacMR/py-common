@@ -46,7 +46,12 @@ Every LLM call through LiteLLM carries labels (ruling R7, BacMR/docs#23). Per-se
 from bacmr_common.accounting import CallTags
 
 tags = CallTags(
-    "tutor-api", "chat", request_id, plan_tier="premium", user_id=profile_id, task="student-question"
+    "tutor-api",
+    "chat",
+    request_id,
+    plan_tier="premium",
+    user_id=profile_id,
+    task="student-question",
 )
 await llm.chat_json(model, system, user, schema, tags=tags)  # also chat_stream / embed
 await llm.embed(
