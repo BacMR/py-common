@@ -14,7 +14,7 @@
 
 **Provenance:** extracted from `archive-backend/libs/py-common`.
 
-**Status (2026-10-22):** extracted with history from `archive-backend` (`libs/py-common` + `contracts/py`); version `0.3.0` adds the explicit `CallTags.task` Spend bucket (BacMR/docs#55). Tag `v0.3.0` is cut on `dev` after that PR merges. CI: ruff + pytest (integration tests are opt-in, see below).
+**Status (2026-10-22):** extracted with history from `archive-backend` (`libs/py-common` + `contracts/py`); version `0.3.0` added the explicit `CallTags.task` Spend bucket (BacMR/docs#55); version `0.4.0` adds `bacmr_common.language`, the one Arabic-script rule shared by knowledge retrieval and the tutor (BacMR/docs#9). Tag `v0.4.0` is cut on `dev` after that PR merges. CI: ruff + pytest (integration tests are opt-in, see below).
 
 ## Usage
 
@@ -28,6 +28,7 @@ Packages (distribution `bacmr-py-common`, Python >= 3.12):
 | `bacmr_common.consumer` | idempotent event consumer (`processed` ledger) |
 | `bacmr_common.accounting` | `CallTags`: `user` + `metadata.tags` labels for every LiteLLM call |
 | `bacmr_common.usage`, `.subjects`, `._sql` | usage tally, subject-profile table, SQL identifier guard |
+| `bacmr_common.language` | `is_arabic` / `arabic_share`: the one Arabic-script rule (≥ 30 % of letters, five Arabic blocks) used by retrieval and the tutor |
 | `bacmr_contracts` | event envelope + JSON schemas (`make_envelope`, `validate_event`) |
 
 ```bash
@@ -60,6 +61,10 @@ await llm.embed(
 ```
 
 Request fields: `user` = student profile id (omitted for system work); `metadata.tags = [service, plan_tier, request_id, purpose]` (exact order; `request_id` is the gateway-minted `X-Request-Id`). LiteLLM records them as `end_user` / `request_tags`. Allowed values: service in `gateway|tutor-api|knowledge-api|knowledge-worker|scraper`; plan_tier in `free|standard|premium|system`; purpose in `chat|understanding|sufficiency|summary|retrieve-rescue|ingest-text|ingest-vision|ingest-enrich|embed|rerank|moderation`; anything else raises `ValueError`. Optional `task=` (since v0.3.0, BacMR/docs#55) names the admin Spend bucket and is appended as a fifth tag `task:<label>`, with label in `student-question|query-understanding|sufficiency-check|conversation-summary|retrieval-rerank|embedding|ocr-vision-page|text-extraction|figure-description|chunk-enrichment|bridge-questions|translation|moderation|evals|quiz-generation`; the first four tags never move, and calls without `task` still emit exactly four. `tags` is optional on the client; `bacmr_common.usage` still appends its own `consumption:`/`service:`/`operation:` tags after these four, and an explicit `user` in the body (i.e. `user_id`) overrides the usage-context actor, so only authenticated boundaries (gateway/tutor-api after verifying the session) may set `user_id`. When `tags` is passed it replaces any caller-supplied `metadata.tags`; other metadata keys are kept.
+
+### Arabic detection
+
+`is_arabic(text)` is True when at least `ARABIC_SHARE_THRESHOLD` (0.30) of the text's letters (`str.isalpha`) are Arabic script (U+0600–06FF, 0750–077F, 08A0–08FF, FB50–FDFF, FE70–FEFF). Digits, symbols and tashkeel do not count; `arabic_share` returns `None` for text with no letters. Knowledge's `detect_query_langs` and the tutor's `detect_language` both call it, so a question is never retrieved as Arabic and answered in French. The threshold was picked from the evals question banks (BacMR/docs#9): every real question at 20–30 % is an English/French question quoting an Arabic name. Change it only with a bench run.
 
 ### Extraction notes
 
