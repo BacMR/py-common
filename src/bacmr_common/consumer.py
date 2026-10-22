@@ -11,6 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bacmr_common._sql import validate_schema_ident
+from bacmr_common.amqp import client_properties
 
 
 def processed_ddl(schema: str) -> str:
@@ -34,6 +35,7 @@ class EventConsumer:
         exchange: str = "bacmr.events",
         max_attempts: int = 3,
         retry_delay_ms: int = 10_000,
+        connection_name: str | None = None,
     ):
         self._engine = engine
         self._schema = validate_schema_ident(schema)
@@ -44,10 +46,13 @@ class EventConsumer:
         self._exchange_name = exchange
         self._max_attempts = max_attempts
         self._retry_delay_ms = retry_delay_ms
+        self._connection_name = connection_name
         self._conn: aio_pika.abc.AbstractRobustConnection | None = None
 
     async def start(self) -> None:
-        self._conn = await aio_pika.connect_robust(self._amqp_url)
+        self._conn = await aio_pika.connect_robust(
+            self._amqp_url, **client_properties(self._connection_name)
+        )
         ch = await self._conn.channel()
         await ch.set_qos(prefetch_count=10)
         ex = await ch.declare_exchange(

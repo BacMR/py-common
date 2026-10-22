@@ -14,7 +14,7 @@
 
 **Provenance:** extracted from `archive-backend/libs/py-common`.
 
-**Status (2026-10-22):** extracted with history from `archive-backend` (`libs/py-common` + `contracts/py`); version `0.3.0` added the explicit `CallTags.task` Spend bucket (BacMR/docs#55); version `0.4.0` adds `bacmr_common.language`, the one Arabic-script rule shared by knowledge retrieval and the tutor (BacMR/docs#9). Tag `v0.4.0` is cut on `dev` after that PR merges. CI: ruff + pytest (integration tests are opt-in, see below).
+**Status (2026-10-22):** extracted with history from `archive-backend` (`libs/py-common` + `contracts/py`); version `0.3.0` added the explicit `CallTags.task` Spend bucket (BacMR/docs#55); version `0.4.0` adds `bacmr_common.language`, the one Arabic-script rule shared by knowledge retrieval and the tutor (BacMR/docs#9). Tag `v0.4.0` is cut on `dev` after that PR merges. Version `0.4.1` adds `bacmr_common.amqp.client_properties` and a `connection_name` parameter on `EventConsumer` / `OutboxPoller`, so every broker connection carries a name the gateway status page can attribute (BacMR/docs#83). CI: ruff + pytest (integration tests are opt-in, see below).
 
 ## Usage
 
