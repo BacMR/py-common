@@ -9,6 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bacmr_common._sql import validate_schema_ident
+from bacmr_common.amqp import client_properties
 
 
 class OutboxPoller:
@@ -19,18 +20,22 @@ class OutboxPoller:
         amqp_url: str,
         exchange: str = "bacmr.events",
         batch: int = 100,
+        connection_name: str | None = None,
     ):
         self._engine = engine
         self._schema = validate_schema_ident(schema)
         self._amqp_url = amqp_url
         self._exchange_name = exchange
         self._batch = batch
+        self._connection_name = connection_name
         self._conn: aio_pika.abc.AbstractRobustConnection | None = None
         self._exchange: aio_pika.abc.AbstractExchange | None = None
 
     async def _ensure_channel(self) -> aio_pika.abc.AbstractExchange:
         if self._exchange is None:
-            self._conn = await aio_pika.connect_robust(self._amqp_url)
+            self._conn = await aio_pika.connect_robust(
+                self._amqp_url, **client_properties(self._connection_name)
+            )
             ch = await self._conn.channel(publisher_confirms=True)
             self._exchange = await ch.declare_exchange(
                 self._exchange_name, aio_pika.ExchangeType.TOPIC, durable=True
