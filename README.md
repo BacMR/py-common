@@ -14,7 +14,7 @@
 
 **Provenance:** extracted from `archive-backend/libs/py-common`.
 
-**Status (2026-10-20):** extracted with history from `archive-backend` (`libs/py-common` + `contracts/py`); version `0.1.0`. Tag `v0.1.0` is cut on `dev` after this PR merges. CI: ruff + pytest (integration tests are opt-in, see below).
+**Status (2026-10-22):** extracted with history from `archive-backend` (`libs/py-common` + `contracts/py`); version `0.3.0` adds the explicit `CallTags.task` Spend bucket (BacMR/docs#55). Tag `v0.3.0` is cut on `dev` after that PR merges. CI: ruff + pytest (integration tests are opt-in, see below).
 
 ## Usage
 
@@ -45,14 +45,21 @@ Every LLM call through LiteLLM carries labels (ruling R7, BacMR/docs#23). Per-se
 ```python
 from bacmr_common.accounting import CallTags
 
-tags = CallTags("tutor-api", "chat", request_id, plan_tier="premium", user_id=profile_id)
+tags = CallTags(
+    "tutor-api",
+    "chat",
+    request_id,
+    plan_tier="premium",
+    user_id=profile_id,
+    task="student-question",
+)
 await llm.chat_json(model, system, user, schema, tags=tags)  # also chat_stream / embed
 await llm.embed(
-    texts, tags=CallTags.system("knowledge-worker", "embed")
+    texts, tags=CallTags.system("knowledge-worker", "embed", task="embedding")
 )  # system work: uuid4 id, no user
 ```
 
-Request fields: `user` = student profile id (omitted for system work); `metadata.tags = [service, plan_tier, request_id, purpose]` (exact order; `request_id` is the gateway-minted `X-Request-Id`). LiteLLM records them as `end_user` / `request_tags`. Allowed values: service in `gateway|tutor-api|knowledge-api|knowledge-worker|scraper`; plan_tier in `free|standard|premium|system`; purpose in `chat|understanding|sufficiency|summary|retrieve-rescue|ingest-text|ingest-vision|ingest-enrich|embed|rerank|moderation`; anything else raises `ValueError`. `tags` is optional on the client; `bacmr_common.usage` still appends its own `consumption:`/`service:`/`operation:` tags after these four, and an explicit `user` in the body (i.e. `user_id`) overrides the usage-context actor, so only authenticated boundaries (gateway/tutor-api after verifying the session) may set `user_id`. When `tags` is passed it replaces any caller-supplied `metadata.tags`; other metadata keys are kept.
+Request fields: `user` = student profile id (omitted for system work); `metadata.tags = [service, plan_tier, request_id, purpose]` (exact order; `request_id` is the gateway-minted `X-Request-Id`). LiteLLM records them as `end_user` / `request_tags`. Allowed values: service in `gateway|tutor-api|knowledge-api|knowledge-worker|scraper`; plan_tier in `free|standard|premium|system`; purpose in `chat|understanding|sufficiency|summary|retrieve-rescue|ingest-text|ingest-vision|ingest-enrich|embed|rerank|moderation`; anything else raises `ValueError`. Optional `task=` (since v0.3.0, BacMR/docs#55) names the admin Spend bucket and is appended as a fifth tag `task:<label>`, with label in `student-question|query-understanding|sufficiency-check|conversation-summary|retrieval-rerank|embedding|ocr-vision-page|text-extraction|figure-description|chunk-enrichment|bridge-questions|translation|moderation|evals|quiz-generation`; the first four tags never move, and calls without `task` still emit exactly four. `tags` is optional on the client; `bacmr_common.usage` still appends its own `consumption:`/`service:`/`operation:` tags after these four, and an explicit `user` in the body (i.e. `user_id`) overrides the usage-context actor, so only authenticated boundaries (gateway/tutor-api after verifying the session) may set `user_id`. When `tags` is passed it replaces any caller-supplied `metadata.tags`; other metadata keys are kept.
 
 ### Extraction notes
 

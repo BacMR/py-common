@@ -3,6 +3,8 @@
 LiteLLM reads `user` and `metadata.tags` from the OpenAI-compatible request body
 and records them in `LiteLLM_SpendLogs` (`end_user`, `request_tags`). Together
 with per-service virtual keys this slices spend by service, plan and purpose.
+`task` (BacMR/docs#55) is the explicit Spend-page bucket, emitted as a fifth
+`task:<label>` tag so the positional four stay unchanged.
 """
 
 import uuid
@@ -26,6 +28,30 @@ PURPOSES = frozenset(
     }
 )
 
+# Spend-page cost buckets (BacMR/docs#55). Orthogonal to `purpose`: e.g. purpose
+# `ingest-vision` covers both `ocr-vision-page` and `figure-description`, and
+# `chat` covers `student-question`, `evals` and `quiz-generation`.
+TASKS = frozenset(
+    {
+        "student-question",
+        "query-understanding",
+        "sufficiency-check",
+        "conversation-summary",
+        "retrieval-rerank",
+        "embedding",
+        "ocr-vision-page",
+        "text-extraction",
+        "figure-description",
+        "chunk-enrichment",
+        "bridge-questions",
+        "translation",
+        "moderation",
+        "evals",
+        "quiz-generation",
+    }
+)
+TASK_TAG_PREFIX = "task:"
+
 
 @dataclass(frozen=True)
 class CallTags:
@@ -34,6 +60,7 @@ class CallTags:
     request_id: str
     plan_tier: str = "system"
     user_id: str | None = None
+    task: str | None = None
 
     def __post_init__(self) -> None:
         for name, value, allowed in (
@@ -43,18 +70,21 @@ class CallTags:
         ):
             if value not in allowed:
                 raise ValueError(f"unknown {name} {value!r}; expected one of {sorted(allowed)}")
+        if self.task is not None and self.task not in TASKS:
+            raise ValueError(f"unknown task {self.task!r}; expected one of {sorted(TASKS)}")
         if not self.request_id:
             raise ValueError("request_id must be non-empty")
 
     @classmethod
-    def system(cls, service: str, purpose: str) -> "CallTags":
+    def system(cls, service: str, purpose: str, *, task: str | None = None) -> "CallTags":
         """System/ingestion work: no student, fresh uuid4 request id."""
-        return cls(service, purpose, str(uuid.uuid4()))
+        return cls(service, purpose, str(uuid.uuid4()), task=task)
 
     def as_request_fields(self) -> dict:
-        fields: dict = {
-            "metadata": {"tags": [self.service, self.plan_tier, self.request_id, self.purpose]}
-        }
+        tags = [self.service, self.plan_tier, self.request_id, self.purpose]
+        if self.task is not None:
+            tags.append(TASK_TAG_PREFIX + self.task)
+        fields: dict = {"metadata": {"tags": tags}}
         if self.user_id is not None:
             fields = {"user": self.user_id, **fields}
         return fields
@@ -68,4 +98,4 @@ class CallTags:
         return out
 
 
-__all__ = ["PLAN_TIERS", "PURPOSES", "SERVICES", "CallTags"]
+__all__ = ["PLAN_TIERS", "PURPOSES", "SERVICES", "TASKS", "TASK_TAG_PREFIX", "CallTags"]
