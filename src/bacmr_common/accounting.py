@@ -29,11 +29,14 @@ PURPOSES = frozenset(
 )
 
 # Spend-page cost buckets (BacMR/docs#55). Orthogonal to `purpose`: e.g. purpose
-# `ingest-vision` covers both `ocr-vision-page` and `figure-description`.
+# `ingest-vision` covers both `ocr-vision-page` and `figure-description`, and
+# `chat` covers `student-question`, `evals` and `quiz-generation`.
 TASKS = frozenset(
     {
         "student-question",
         "query-understanding",
+        "sufficiency-check",
+        "conversation-summary",
         "retrieval-rerank",
         "embedding",
         "ocr-vision-page",

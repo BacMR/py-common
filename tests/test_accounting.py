@@ -106,7 +106,7 @@ def test_system_accepts_task():
 
 
 def test_task_enum():
-    assert len(TASKS) == 13
+    assert len(TASKS) == 15
     assert {"ocr-vision-page", "figure-description", "translation", "evals"} <= TASKS
 
 
