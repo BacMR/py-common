@@ -1,6 +1,6 @@
 [project]
 name = "bacmr-py-common"
-version = "0.2.0"
+version = "0.3.0"
 description = "Shared Python library for BacMR services (settings, outbox, LiteLLM client, RabbitMQ helpers, event contracts)"
 requires-python = ">=3.12"
 dependencies = [
