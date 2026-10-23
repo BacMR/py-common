@@ -51,7 +51,7 @@ def test_validation(kw):
 
 def test_enums():
     assert "knowledge-api" in SERVICES and "system" in PLAN_TIERS and "rerank" in PURPOSES
-    assert len(SERVICES) == 5 and len(PLAN_TIERS) == 4 and len(PURPOSES) == 11
+    assert len(SERVICES) == 5 and len(PLAN_TIERS) == 4 and len(PURPOSES) == 12
 
 
 def test_gateway_body_user_precedence_and_tag_order():
@@ -106,7 +106,7 @@ def test_system_accepts_task():
 
 
 def test_task_enum():
-    assert len(TASKS) == 15
+    assert len(TASKS) == 16
     assert {"ocr-vision-page", "figure-description", "translation", "evals"} <= TASKS
 
 
@@ -118,3 +118,16 @@ def test_gateway_body_keeps_task_before_usage_tags():
     assert out["metadata"]["tags"][:5] == [
         "tutor-api", "system", "r1", "chat", "task:student-question",
     ]  # fmt: skip
+
+
+def test_news_classify_purpose_and_task():
+    # BacMR/docs#111: the news monitor's classify call is its own Spend purpose + bucket.
+    from bacmr_common.accounting import TASKS
+
+    tags = CallTags.system("knowledge-api", "news-classify", task="news-classification")
+    fields = tags.as_request_fields()
+    assert fields["metadata"]["tags"][0] == "knowledge-api"
+    assert fields["metadata"]["tags"][1] == "system"
+    assert fields["metadata"]["tags"][3] == "news-classify"
+    assert fields["metadata"]["tags"][4] == "task:news-classification"
+    assert "news-classify" in PURPOSES and "news-classification" in TASKS

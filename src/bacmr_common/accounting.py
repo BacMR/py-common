@@ -25,6 +25,8 @@ PURPOSES = frozenset(
         "embed",
         "rerank",
         "moderation",
+        # education news monitor: classify + bilingual summary (BacMR/docs#111)
+        "news-classify",
     }
 )
 
@@ -48,6 +50,7 @@ TASKS = frozenset(
         "moderation",
         "evals",
         "quiz-generation",
+        "news-classification",
     }
 )
 TASK_TAG_PREFIX = "task:"
