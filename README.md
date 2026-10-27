@@ -70,9 +70,9 @@ Every service writes one JSON object per line on stdout; Grafana Alloy ships the
 ```python
 from bacmr_common.logging import RequestIdMiddleware, httpx_event_hooks, setup_logging
 
-setup_logging("tutor-api")                     # root + uvicorn loggers -> JSON
-app.add_middleware(RequestIdMiddleware)        # accept/mint X-Request-Id, echo it, log http.request
-client = httpx.AsyncClient(event_hooks=httpx_event_hooks())   # forwards X-Request-Id
+setup_logging("tutor-api")  # root + uvicorn loggers -> JSON
+app.add_middleware(RequestIdMiddleware)  # accept/mint X-Request-Id, echo it, log http.request
+client = httpx.AsyncClient(event_hooks=httpx_event_hooks())  # forwards X-Request-Id
 log.info("turn done", extra={"event": "chat.turn", "duration_ms": 812, "status": "ok"})
 ```
 
