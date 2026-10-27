@@ -254,7 +254,14 @@ def redact(text: str) -> str:
 
 
 def redact_value(value: Any, key: str | None = None) -> Any:
-    if key is not None and _SECRET_KEY_RE.search(key) and value is not None:
+    if (
+        key is not None
+        and _SECRET_KEY_RE.search(key)
+        and value is not None
+        # Counters such as `prompt_tokens` / `tokens_used` are numbers, never
+        # credentials: keep them (a secret is always a string or a structure).
+        and not isinstance(value, bool | int | float)
+    ):
         return "[redacted]"
     if key in _ID_FIELDS:
         return value
