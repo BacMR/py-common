@@ -14,7 +14,7 @@
 
 **Provenance:** extracted from `archive-backend/libs/py-common`.
 
-**Status (2026-10-22):** extracted with history from `archive-backend` (`libs/py-common` + `contracts/py`); version `0.3.0` added the explicit `CallTags.task` Spend bucket (BacMR/docs#55); version `0.4.0` adds `bacmr_common.language`, the one Arabic-script rule shared by knowledge retrieval and the tutor (BacMR/docs#9). Tag `v0.4.0` is cut on `dev` after that PR merges. Version `0.4.1` adds `bacmr_common.amqp.client_properties` and a `connection_name` parameter on `EventConsumer` / `OutboxPoller`, so every broker connection carries a name the gateway status page can attribute (BacMR/docs#83). Version `0.5.0` adds the `news-classify` purpose and the `news-classification` Spend task for the education news monitor (BacMR/docs#111). CI: ruff + pytest (integration tests are opt-in, see below).
+**Status (2026-10-22):** extracted with history from `archive-backend` (`libs/py-common` + `contracts/py`); version `0.3.0` added the explicit `CallTags.task` Spend bucket (BacMR/docs#55); version `0.4.0` adds `bacmr_common.language`, the one Arabic-script rule shared by knowledge retrieval and the tutor (BacMR/docs#9). Tag `v0.4.0` is cut on `dev` after that PR merges. Version `0.4.1` adds `bacmr_common.amqp.client_properties` and a `connection_name` parameter on `EventConsumer` / `OutboxPoller`, so every broker connection carries a name the gateway status page can attribute (BacMR/docs#83). Version `0.5.0` adds the `news-classify` purpose and the `news-classification` Spend task for the education news monitor (BacMR/docs#111). Version `0.6.0` adds `bacmr_common.logging`, the one log contract for every Python service (BacMR/docs#118); `EventConsumer` binds and carries `x-request-id`/`x-*-id` headers and logs `event.consumed`/`event.failed`. CI: ruff + pytest (integration tests are opt-in, see below).
 
 ## Usage
 
@@ -29,6 +29,7 @@ Packages (distribution `bacmr-py-common`, Python >= 3.12):
 | `bacmr_common.accounting` | `CallTags`: `user` + `metadata.tags` labels for every LiteLLM call |
 | `bacmr_common.usage`, `.subjects`, `._sql` | usage tally, subject-profile table, SQL identifier guard |
 | `bacmr_common.language` | `is_arabic` / `arabic_share`: the one Arabic-script rule (≥ 30 % of letters, five Arabic blocks) used by retrieval and the tutor |
+| `bacmr_common.logging` | JSON log contract, request-id context, redaction, ASGI `RequestIdMiddleware`, HTTP/AMQP propagation helpers (BacMR/docs#118) |
 | `bacmr_contracts` | event envelope + JSON schemas (`make_envelope`, `validate_event`) |
 
 ```bash
@@ -61,6 +62,27 @@ await llm.embed(
 ```
 
 Request fields: `user` = student profile id (omitted for system work); `metadata.tags = [service, plan_tier, request_id, purpose]` (exact order; `request_id` is the gateway-minted `X-Request-Id`). LiteLLM records them as `end_user` / `request_tags`. Allowed values: service in `gateway|tutor-api|knowledge-api|knowledge-worker|scraper`; plan_tier in `free|standard|premium|system`; purpose in `chat|understanding|sufficiency|summary|retrieve-rescue|ingest-text|ingest-vision|ingest-enrich|embed|rerank|moderation`; anything else raises `ValueError`. Optional `task=` (since v0.3.0, BacMR/docs#55) names the admin Spend bucket and is appended as a fifth tag `task:<label>`, with label in `student-question|query-understanding|sufficiency-check|conversation-summary|retrieval-rerank|embedding|ocr-vision-page|text-extraction|figure-description|chunk-enrichment|bridge-questions|translation|moderation|evals|quiz-generation`; the first four tags never move, and calls without `task` still emit exactly four. `tags` is optional on the client; `bacmr_common.usage` still appends its own `consumption:`/`service:`/`operation:` tags after these four, and an explicit `user` in the body (i.e. `user_id`) overrides the usage-context actor, so only authenticated boundaries (gateway/tutor-api after verifying the session) may set `user_id`. When `tags` is passed it replaces any caller-supplied `metadata.tags`; other metadata keys are kept.
+
+### Logging (v0.6.0, BacMR/docs#118)
+
+Every service writes one JSON object per line on stdout; Grafana Alloy ships them to Loki with only `service`, `level`, `env` as labels (ids stay in the body).
+
+```python
+from bacmr_common.logging import RequestIdMiddleware, httpx_event_hooks, setup_logging
+
+setup_logging("tutor-api")                     # root + uvicorn loggers -> JSON
+app.add_middleware(RequestIdMiddleware)        # accept/mint X-Request-Id, echo it, log http.request
+client = httpx.AsyncClient(event_hooks=httpx_event_hooks())   # forwards X-Request-Id
+log.info("turn done", extra={"event": "chat.turn", "duration_ms": 812, "status": "ok"})
+```
+
+Fields: `time` (UTC ISO, ms, `Z`), `level` (`debug|info|warn|error|fatal`), `service`, `env` (`APP_ENV`, default `dev`), `version` (`SERVICE_VERSION`/`GIT_SHA`, else `unknown`), `event` (default `log`), `msg`, `logger`, the context ids `request_id`, `user_id`, `conversation_id`, `document_id`, `page`, `job_id`, then `duration_ms`, `status`, `error{type,message,stack}` and any flat extras. Extras come from `extra={...}` or the legacy `extra={"fields": {...}}`.
+
+- Context: `log_context(**ids)` / `bind`/`unbind`; `request_id` falls back to the `usage_context` one, and `usage.gateway_body` falls back to the log one, so LiteLLM `metadata.request_id`/`litellm_trace_id` always match the log lines.
+- Propagation: `outgoing_headers()` / `httpx_event_hooks()` (HTTP `X-Request-Id`), `amqp_headers()` (`x-request-id`, `x-job-id`, ...) for publishers, `bind_from_amqp_headers(message.headers)` for consumers (`EventConsumer` does it for you and keeps the id headers on retry/DLQ copies). The outbox poller publishes later, outside any request, so outbox events carry no request id.
+- Inbound ids must match `^[A-Za-z0-9._:-]{1,128}$`, else a uuid4 is minted.
+- Redaction (`redact`, `redact_value`): bearer/basic credentials, JWTs, `sk-` keys, `password=`/`token:`-style pairs, URL userinfo, emails (`[email]`), phone numbers (`[phone]`, +222 and international); dict keys that look like secrets are replaced wholesale; `*_id` fields are never touched. Never log message/answer content at info.
+- Optional env: `LOG_LEVEL` (`INFO`), `LOG_FORMAT` (`json`|`text`), `APP_ENV`, `SERVICE_VERSION`. uvicorn access lines are off by default (the middleware's `http.request` replaces them; `setup_logging(..., access_log=True)` keeps them, as `http.access`). structlog users: `structlog_processor(service)` before `JSONRenderer()`.
 
 ### Arabic detection
 
