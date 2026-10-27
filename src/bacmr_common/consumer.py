@@ -3,6 +3,8 @@ via a per-queue retry queue (per-message TTL dead-lettering back), then DLQ."""
 
 import asyncio
 import json
+import logging
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 
@@ -12,6 +14,19 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from bacmr_common._sql import validate_schema_ident
 from bacmr_common.amqp import client_properties
+from bacmr_common.logging import bind_from_amqp_headers
+
+_log = logging.getLogger("bacmr_common.consumer")
+
+
+def _carried_headers(message) -> dict:
+    """The id headers (`x-request-id`, `x-job-id`, ...) a retry/DLQ copy keeps."""
+    headers = message.headers if isinstance(message.headers, dict) else {}
+    return {
+        k: v
+        for k, v in headers.items()
+        if isinstance(k, str) and k.startswith("x-") and k.endswith("-id")
+    }
 
 
 def processed_ddl(schema: str) -> str:
@@ -160,9 +175,11 @@ class EventConsumer:
         if already_processed:
             await message.ack()
             return
+        started = time.perf_counter()
         try:
-            await self._handler(envelope)
-        except Exception:  # noqa: BLE001 - intentional catch-all for retry routing
+            with bind_from_amqp_headers(message.headers):
+                await self._handler(envelope)
+        except Exception as exc:  # noqa: BLE001 - intentional catch-all for retry routing
             # aio-pika types a header value as the whole AMQP field union. Ours
             # is always the int we published, but a broker/plugin round trip can
             # hand back a string or bytes, and int() on a table/timestamp/None
@@ -173,11 +190,25 @@ class EventConsumer:
                 int(raw_attempts) if isinstance(raw_attempts, int | float | str | bytes) else 0
             ) + 1
             body = message.body
+            with bind_from_amqp_headers(message.headers):
+                _log.warning(
+                    "event handler failed",
+                    extra={
+                        "event": "event.failed",
+                        "event_id": str(event_id),
+                        "routing_key": envelope.get("routing_key"),
+                        "queue": self._queue_name,
+                        "attempt": attempts,
+                        "status": "dlq" if attempts >= self._max_attempts else "retry",
+                        "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                        "error": exc,
+                    },
+                )
             if attempts >= self._max_attempts:
                 await self._ch.default_exchange.publish(
                     aio_pika.Message(
                         body=body,
-                        headers={"x-attempts": attempts},
+                        headers={**_carried_headers(message), "x-attempts": attempts},
                         delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
                     ),
                     routing_key=f"{self._queue_name}.dlq",
@@ -192,7 +223,7 @@ class EventConsumer:
                 await self._ch.default_exchange.publish(
                     aio_pika.Message(
                         body=body,
-                        headers={"x-attempts": attempts},
+                        headers={**_carried_headers(message), "x-attempts": attempts},
                         expiration=self._retry_delay_ms / 1000 * 2 ** (attempts - 1),
                         delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
                     ),
@@ -202,6 +233,18 @@ class EventConsumer:
             return
         await self._mark_processed(event_id)
         await message.ack()
+        with bind_from_amqp_headers(message.headers):
+            _log.info(
+                "event handled",
+                extra={
+                    "event": "event.consumed",
+                    "event_id": str(event_id),
+                    "routing_key": envelope.get("routing_key"),
+                    "queue": self._queue_name,
+                    "status": "ok",
+                    "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                },
+            )
 
     async def stop(self) -> None:
         if self._conn is not None:

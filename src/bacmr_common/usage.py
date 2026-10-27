@@ -60,6 +60,14 @@ def current_usage_field(name: str) -> str | None:
 
 def gateway_body(body: dict, *, service: str, call_id: str, attempt: int) -> dict:
     ctx = dict(_context.get() or {})
+    if "request_id" not in ctx:
+        # An id bound only through bacmr_common.logging (e.g. a queue consumer
+        # handling a message that carried x-request-id) still reaches LiteLLM.
+        from bacmr_common.logging import current_request_id
+
+        rid = current_request_id()
+        if rid:
+            ctx["request_id"] = rid
     consumption = ctx.get("consumption", "system")
     actor = ctx.get("actor", "system:" + service)
     operation = ctx.get("operation", body.get("model", "unknown"))
