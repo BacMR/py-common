@@ -84,7 +84,7 @@ def test_redact_keeps_ids_and_numbers():
     assert blog.redact("took 12 ms, page 34, 2026-10-27T12:00:00Z") == (
         "took 12 ms, page 34, 2026-10-27T12:00:00Z"
     )
-    assert blog.redact_value({"token": "x", "nested": {"secret": 1}}) == {
+    assert blog.redact_value({"token": "x", "nested": {"secret": "s3cr3t"}}) == {
         "token": "[redacted]",
         "nested": {"secret": "[redacted]"},
     }
@@ -212,3 +212,11 @@ def test_middleware_mints_on_bad_id(capture):
     hdrs = _run(blog.RequestIdMiddleware(_app), [(b"x-request-id", b"bad id\n")])
     rid = hdrs[b"x-request-id"].decode()
     assert rid != "bad id\n" and len(rid) == 36
+
+
+def test_numeric_counters_under_secret_like_keys_are_kept():
+    assert blog.redact_value(812, "prompt_tokens") == 812
+    assert blog.redact_value({"tokens_used": 5, "token": "abc"}) == {
+        "tokens_used": 5,
+        "token": "[redacted]",
+    }
