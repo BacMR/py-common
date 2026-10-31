@@ -40,7 +40,7 @@ select = ["E4", "E7", "E9", "F", "I", "B", "UP", "S", "C4", "SIM"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S"]
 "**/test_*.py" = ["S"]
-# Moved library code stays byte-identical to archive-backend (extract, never rewrite).
+# Extracted library code keeps its original import layout.
 "src/bacmr_common/outbox.py" = ["I001"]
 
 [tool.pytest.ini_options]

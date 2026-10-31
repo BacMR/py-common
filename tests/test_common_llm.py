@@ -622,8 +622,8 @@ def test_accounting_fields_use_litellm_persisted_metadata_container():
 
 # --- model-gateway base URL normalization -----------------------------------
 #
-# Found 2026-10-04 on the `bacmr-v2-next` stack: its rendered env carried
-# MODEL_GATEWAY_URL=http://litellm:4000/v1 while all five live containers
+# Found 2026-10-04: one rendered env carried
+# MODEL_GATEWAY_URL=http://litellm:4000/v1 while the live containers
 # carried http://litellm:4000. Every request method here spells the path in
 # full (`/v1/chat/completions`), and httpx appends a relative path to the base
 # URL's path rather than replacing it, so the `/v1` form produced
