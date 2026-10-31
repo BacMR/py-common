@@ -32,7 +32,7 @@ def test_contract_fields(capture):
     assert line["duration_ms"] == 12.5
 
 
-def test_legacy_fields_extra_and_default_event(capture):
+def test_nested_fields_extra_and_default_event(capture):
     log = logging.getLogger("bacmr_knowledge.api")
     log.warning("w", extra={"fields": {"event": "retrieve", "hits": 3}})
     log.info("plain")

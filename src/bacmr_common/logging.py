@@ -21,7 +21,7 @@ Every line on stdout is one JSON object with the contract fields::
 Call sites log extra fields either way::
 
     log.info("retrieved", extra={"event": "retrieve", "duration_ms": 12})
-    log.info("retrieved", extra={"fields": {"event": "retrieve"}})  # legacy form
+    log.info("retrieved", extra={"fields": {"event": "retrieve"}})  # nested form
 
 Labels in Loki are only service/level/env; ids stay in the body.
 """
@@ -319,9 +319,9 @@ class JsonFormatter(logging.Formatter):
 
     def to_dict(self, record: logging.LogRecord) -> dict[str, Any]:
         extras: dict[str, Any] = {}
-        legacy = getattr(record, "fields", None)
-        if isinstance(legacy, Mapping):
-            extras.update(legacy)
+        nested = getattr(record, "fields", None)
+        if isinstance(nested, Mapping):
+            extras.update(nested)
         for key, value in record.__dict__.items():
             if key not in _RECORD_ATTRS and not key.startswith("_"):
                 extras[key] = value

@@ -100,10 +100,9 @@ def normalize_gateway_base_url(url: str) -> str:
 
     Normalizing rather than rejecting, because `…:4000/v1` is the form every
     OpenAI SDK asks for and the form an operator will therefore write. Measured
-    2026-10-04: `MODEL_GATEWAY_URL` in the rendered env for the `bacmr-v2-next`
-    stack was `http://litellm:4000/v1` while all five live containers had
-    `http://litellm:4000`, i.e. the two spellings were already in production
-    side by side with only one of them working. Accepting both makes the key
+    2026-10-04: one rendered env carried `MODEL_GATEWAY_URL=http://litellm:4000/v1`
+    while the live containers had `http://litellm:4000`, i.e. the two spellings
+    were already in production side by side with only one of them working. Accepting both makes the key
     un-mis-settable instead of leaving a 404 waiting for the next
     `refresh-env.sh` run on the live stack.
     """

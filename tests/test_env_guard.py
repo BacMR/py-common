@@ -57,8 +57,8 @@ def test_the_denylist_is_the_runbook_table():
     """A regression guard on the list itself: deleting a row would make the
     parametrised tests above pass by giving them nothing to check.
 
-    Source: docs/runbooks/vps-coexistence.md -- the "Ports (host-published)"
-    table (5672 legacy broker, 5673 v2 broker) and the "one host Postgres
+    Source: the VPS docs (vps-setup.bacmr.com) -- the "Ports (host-published)"
+    table (5672 default AMQP port, 5673 production broker) and the "one host Postgres
     (aaPanel, port 5432)" section.
     """
     assert set(DENIED_AMQP_PORTS) == {5672, 5673}
@@ -68,8 +68,8 @@ def test_the_denylist_is_the_runbook_table():
 
 def test_the_denylist_messages_name_what_is_at_stake():
     """Whoever hits this refusal at 23:00 must learn what they nearly touched."""
-    assert "PRODUCTION" in DENIED_AMQP_PORTS[5672]
-    assert "v2" in DENIED_AMQP_PORTS[5673]
+    assert "PRODUCTION" in DENIED_AMQP_PORTS[5673]
+    assert "default" in DENIED_AMQP_PORTS[5672]
     for db in ("bacmr_rag", "bacmr_v2", "bacmr_v2_zitadel", "litellm_v2"):
         assert db in DENIED_POSTGRES_PORTS[5432]
 
@@ -82,7 +82,7 @@ HOSTS = [
     "127.0.0.1",
     "localhost",
     "host.docker.internal",  # how containers reach the aaPanel engine
-    "bacmr-v2-rabbitmq-1",  # a bare container name on a shared docker network
+    "bacmr-rabbitmq",  # a bare container name on a shared docker network
     "rabbitmq",  # the compose service alias
     "[::1]",  # IPv6 literal
     "[2a02:c207:2026:1234::1]",  # IPv6, routable

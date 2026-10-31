@@ -3,8 +3,8 @@
 These three modules (``test_consumer``, ``test_poller``, ``test_skeleton_smoke``)
 declare exchanges, declare queues, publish and consume. Until now each of them
 hardcoded ``amqp://bacmr:bacmr_dev@127.0.0.1:5673/`` with no way to override it,
-and ``127.0.0.1:5673`` is ``bacmr-v2-rabbitmq-1`` -- the **live v2 broker**
-(``docs/runbooks/vps-coexistence.md``, "Ports (host-published)"). The only reason
+and ``127.0.0.1:5673`` is ``bacmr-rabbitmq`` -- the **production broker**
+(the VPS "Ports (host-published)" table). The only reason
 the suite had not already declared ``test.consumer.*`` queues and pumped
 dead-letters through production is that the Postgres they also hardcoded
 (``127.0.0.1:5433``, the dev compose profile) is usually down, so the fixture
@@ -14,7 +14,7 @@ errored before the broker was touched. That is an accident, not a safeguard:
 So endpoints come from here, and here refuses production rather than warning:
 
 - **defaults are the isolated ``bacmr-it`` stack** (Postgres 5533, AMQP 5773),
-  not the dev profile and certainly not v2. A default is how a test suite ends
+  not the dev profile and certainly not production. A default is how a test suite ends
   up somewhere nobody chose;
 - **every production port is denied on every host.** Not just ``127.0.0.1``:
   ``localhost``, ``host.docker.internal``, a container name, an IPv6 literal.
@@ -48,23 +48,24 @@ from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
 # ---------------------------------------------------------------------------
 # The denylist. Source: the "Ports (host-published)" table and the "Databases --
-# one host Postgres (aaPanel, /www/server/pgsql, port 5432)" section of
-# docs/runbooks/vps-coexistence.md (read 2026-09-26). Keep the two in sync: a
+# one host Postgres (aaPanel, /www/server/pgsql, port 5432)" facts of the VPS
+# docs (vps-setup.bacmr.com, re-checked 2026-10-31). Keep the two in sync: a
 # production port that is in that table and not in this map is a port these
 # tests would happily declare queues on.
 # ---------------------------------------------------------------------------
 
-# Brokers. Both are live: the legacy one carries gateway + scraper + rag traffic
-# for the students using bacmr.com today, the v2 one carries the stack under
-# evaluation. Declaring a queue or a dead-letter exchange on either is a change
-# to a running system.
+# Brokers. 5673 is the production broker (gateway + knowledge + tutor + scraper
+# traffic for the students using bacmr.com); 5672 is the AMQP default port, which
+# an implicit-port URL resolves to, and stays denied so no future broker
+# published there is ever reached by accident. Declaring a queue or a
+# dead-letter exchange on a running broker is a change to a running system.
 DENIED_AMQP_PORTS: dict[int, str] = {
-    5672: "legacy RabbitMQ AMQP (gateway + scraper + rag) -- SERVING PRODUCTION",
-    5673: "v2 RabbitMQ AMQP (bacmr-v2-rabbitmq-1)",
+    5672: "default RabbitMQ AMQP port -- reserved, never a test target",
+    5673: "production RabbitMQ AMQP (bacmr-rabbitmq) -- SERVING PRODUCTION",
 }
 
 # The one host Postgres engine. A single port, but four databases behind it:
-# bacmr_rag (legacy, serving students), bacmr_v2 (the v2 stack), bacmr_v2_zitadel
+# bacmr_rag and bacmr_v2 (the service schemas, serving students), bacmr_v2_zitadel
 # (identity) and litellm_v2 (the spend ledger). These tests run TRUNCATE.
 DENIED_POSTGRES_PORTS: dict[int, str] = {
     5432: "host aaPanel Postgres engine -- bacmr_rag, bacmr_v2, bacmr_v2_zitadel, litellm_v2",
@@ -170,7 +171,7 @@ def vet_endpoint(url: str) -> str:
     if port in DENIED_PORTS:
         raise ProductionEndpointRefused(
             f"refusing {host}:{port}: port {port} is {DENIED_PORTS[port]} "
-            "(docs/runbooks/vps-coexistence.md). These tests declare queues, publish "
+            "(VPS docs, vps-setup.bacmr.com). These tests declare queues, publish "
             "events and TRUNCATE tables -- point them at the isolated bacmr-it stack "
             f"({DEFAULT_AMQP_URL} / {DEFAULT_DSN}). There is no override."
         )
@@ -202,7 +203,7 @@ def role_dsn(user: str, password: str, database: str = "bacmr") -> str:
     """The resolved DSN's **server**, with the role and database named by the caller.
 
     One exported ``TEST_DATABASE_URL`` has to drive suites that connect as
-    different roles: the v2 Postgres isolates ``knowledge_svc`` from
+    different roles: the production Postgres isolates ``knowledge_svc`` from
     ``tutor_svc`` on purpose (per-schema grants plus ``pg_hba.conf``, and
     ``deploy/tests/test_db_isolation.py`` asserts tutor cannot touch
     ``content``). Before this existed, ``services/tutor/tests`` and
