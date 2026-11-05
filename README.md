@@ -14,7 +14,7 @@
 
 **Provenance:** extracted with history (see `git log`).
 
-**Status (2026-10-22):** extracted with history; version `0.3.0` added the explicit `CallTags.task` Spend bucket (BacMR/docs#55); version `0.4.0` adds `bacmr_common.language`, the one Arabic-script rule shared by knowledge retrieval and the tutor (BacMR/docs#9). Tag `v0.4.0` is cut on `dev` after that PR merges. Version `0.4.1` adds `bacmr_common.amqp.client_properties` and a `connection_name` parameter on `EventConsumer` / `OutboxPoller`, so every broker connection carries a name the gateway status page can attribute (BacMR/docs#83). Version `0.5.0` adds the `news-classify` purpose and the `news-classification` Spend task for the education news monitor (BacMR/docs#111). Version `0.6.0` adds `bacmr_common.logging`, the one log contract for every Python service (BacMR/docs#118); `EventConsumer` binds and carries `x-request-id`/`x-*-id` headers and logs `event.consumed`/`event.failed`. Version `0.6.1` keeps numeric values under secret-looking keys (`prompt_tokens`, `tokens_used`) instead of redacting them. CI: ruff + pytest (integration tests are opt-in, see below).
+**Status (2026-10-22):** extracted with history; version `0.3.0` added the explicit `CallTags.task` Spend bucket (BacMR/docs#55); version `0.4.0` adds `bacmr_common.language`, the one Arabic-script rule shared by knowledge retrieval and the tutor (BacMR/docs#9). Tag `v0.4.0` is cut on `dev` after that PR merges. Version `0.4.1` adds `bacmr_common.amqp.client_properties` and a `connection_name` parameter on `EventConsumer` / `OutboxPoller`, so every broker connection carries a name the gateway status page can attribute (BacMR/docs#83). Version `0.5.0` adds the `news-classify` purpose and the `news-classification` Spend task for the education news monitor (BacMR/docs#111). Version `0.6.0` adds `bacmr_common.logging`, the one log contract for every Python service (BacMR/docs#118); `EventConsumer` binds and carries `x-request-id`/`x-*-id` headers and logs `event.consumed`/`event.failed`. Version `0.6.1` keeps numeric values under secret-looking keys (`prompt_tokens`, `tokens_used`) instead of redacting them. Version `0.7.0` adds `LLMClient.chat_tools`, OpenAI-format tool calling for the agentic tutor (BacMR/py-common#16, BacMR/docs#69); existing methods are unchanged. CI: ruff + pytest (integration tests are opt-in, see below).
 
 ## Usage
 
@@ -39,6 +39,16 @@ uv run pytest -q          # unit tests; `-m integration` needs the isolated bacm
 ```
 
 Install in a service: `bacmr-py-common @ git+ssh://git@bacmr-py-common/BacMR/py-common.git@v0.1.0`.
+
+### Tool calling (v0.7.0, BacMR/py-common#16)
+
+`await llm.chat_tools(model, messages, tools, tool_choice="auto", max_tokens=None, parallel_tool_calls=True, tags=None)` returns a `ToolReply` (`content`, `tool_calls: list[ToolCall]`, `usage`, `finish_reason`, raw `message`). Each `ToolCall` has `id`, `name`, `arguments` (always a dict), `raw_arguments` and `arguments_error`.
+
+- Transport, virtual key, tags, retry/backoff (429/5xx, same ladder as `chat_json`) and per-attempt usage folding into `usage_tally` are shared with `chat_json`. Keyword-only `max_attempts` / `backoff_schedule` let user-facing loops shorten the ladder.
+- `tool_choice`: `"auto"`, `"required"`, `"none"`, `{"name": "search"}` (forced function) or a full OpenAI dict.
+- Malformed `arguments` never raise: `arguments={}` and `arguments_error` explains why, so the loop can return the error as the tool result.
+- Append `reply.assistant_message()` to `messages` before the tool results; it keeps provider extras such as Gemini thought signatures.
+- `tools=[]` sends no `tools`/`tool_choice`; `parallel_tool_calls` is sent only when False.
 
 ### Accounting labels
 

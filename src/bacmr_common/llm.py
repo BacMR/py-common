@@ -17,7 +17,8 @@ import base64
 import json
 import random
 from collections.abc import AsyncIterator
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 import httpx
 from jsonschema import Draft202012Validator, ValidationError
@@ -59,13 +60,23 @@ def _body_chars(body: dict) -> int:
 
 
 def _reply_chars(payload: dict) -> int:
+    """Characters the model generated: the text content plus, for a
+    tool-calling reply, each call's name and raw `arguments` (a reply that is
+    only tool calls has null content but still burned completion tokens)."""
     if not isinstance(payload, dict):
         return 0
-    return sum(
-        len((choice.get("message") or {}).get("content") or "")
-        for choice in payload.get("choices") or []
-        if isinstance(choice, dict)
-    )
+    chars = 0
+    for choice in payload.get("choices") or []:
+        if not isinstance(choice, dict):
+            continue
+        message = choice.get("message") or {}
+        chars += len(message.get("content") or "")
+        for call in message.get("tool_calls") or []:
+            fn = (call.get("function") or {}) if isinstance(call, dict) else {}
+            args = fn.get("arguments")
+            chars += len(fn.get("name") or "")
+            chars += len(args) if isinstance(args, str) else len(json.dumps(args or {}))
+    return chars
 
 
 def _record_call_usage(request_body: dict, resp: httpx.Response) -> None:
@@ -84,6 +95,100 @@ def _record_call_usage(request_body: dict, resp: httpx.Response) -> None:
 
 class LLMOutputError(RuntimeError):
     """The model returned unparseable or schema-invalid JSON twice."""
+
+
+@dataclass(frozen=True)
+class ToolCall:
+    """One function call the model asked for.
+
+    `arguments` is always a dict. When the model's `arguments` string is not a
+    JSON object (truncated by `max_tokens`, a stray trailing comma, a bare
+    list), `arguments` is `{}`, `arguments_error` says why and `raw_arguments`
+    keeps the original text, so the agent loop can feed the error back as the
+    tool result instead of the whole turn dying on a JSONDecodeError.
+    """
+
+    id: str
+    name: str
+    arguments: dict
+    raw_arguments: str = ""
+    arguments_error: str | None = None
+
+
+@dataclass(frozen=True)
+class ToolReply:
+    """A parsed tool-enabled completion.
+
+    `message` is the assistant message exactly as the provider returned it;
+    `assistant_message()` is the form to append to `messages` before the tool
+    results (provider extras such as Gemini thought signatures ride on the
+    tool-call entries and the next call fails without them).
+    """
+
+    content: str
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    usage: dict | None = None
+    finish_reason: str | None = None
+    message: dict = field(default_factory=dict)
+
+    def assistant_message(self) -> dict:
+        out = {k: v for k, v in self.message.items() if v is not None}
+        out["role"] = "assistant"
+        out.setdefault("content", "")
+        return out
+
+
+ToolChoice = Literal["auto", "required", "none"] | dict
+
+
+def _tool_choice_body(tool_choice: ToolChoice) -> str | dict:
+    """`"auto"`/`"required"`/`"none"` pass through; `{"name": "search"}` becomes
+    the OpenAI forced-function shape; a full OpenAI dict passes through."""
+    if isinstance(tool_choice, str):
+        if tool_choice not in ("auto", "required", "none"):
+            raise ValueError(
+                f"tool_choice must be 'auto', 'required', 'none' or {{'name': ...}}, "
+                f"got {tool_choice!r}"
+            )
+        return tool_choice
+    if isinstance(tool_choice, dict):
+        if "type" in tool_choice:
+            return tool_choice
+        if isinstance(tool_choice.get("name"), str):
+            return {"type": "function", "function": {"name": tool_choice["name"]}}
+    raise ValueError(f"unsupported tool_choice: {tool_choice!r}")
+
+
+def _parse_tool_call(index: int, call: Any) -> ToolCall:
+    call = call if isinstance(call, dict) else {}
+    fn = call.get("function") or {}
+    name = fn.get("name") or ""
+    raw = fn.get("arguments")
+    call_id = call.get("id") or f"call_{index}"
+    if isinstance(raw, dict):  # some providers hand back an object already
+        return ToolCall(id=call_id, name=name, arguments=raw, raw_arguments=json.dumps(raw))
+    raw_text = raw if isinstance(raw, str) else ""
+    if not raw_text.strip():  # a no-argument tool is legitimately sent as ""
+        return ToolCall(id=call_id, name=name, arguments={}, raw_arguments=raw_text)
+    try:
+        parsed = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        return ToolCall(
+            id=call_id,
+            name=name,
+            arguments={},
+            raw_arguments=raw_text,
+            arguments_error=f"arguments are not valid JSON: {exc}",
+        )
+    if not isinstance(parsed, dict):
+        return ToolCall(
+            id=call_id,
+            name=name,
+            arguments={},
+            raw_arguments=raw_text,
+            arguments_error=f"arguments must be a JSON object, got {type(parsed).__name__}",
+        )
+    return ToolCall(id=call_id, name=name, arguments=parsed, raw_arguments=raw_text)
 
 
 def normalize_gateway_base_url(url: str) -> str:
@@ -255,6 +360,63 @@ class LLMClient:
                 last_err, last_raw = exc, raw
         raise LLMOutputError(f"model {model} returned invalid JSON three times: {last_err}")
 
+    async def chat_tools(
+        self,
+        model: str,
+        messages: list[dict],
+        tools: list[dict],
+        tool_choice: ToolChoice = "auto",
+        max_tokens: int | None = None,
+        parallel_tool_calls: bool = True,
+        tags: CallTags | None = None,
+        *,
+        max_attempts: int = MAX_HTTP_ATTEMPTS,
+        backoff_schedule: tuple[float, ...] | None = None,
+    ) -> ToolReply:
+        """One non-streamed, tool-enabled chat completion (OpenAI format; LiteLLM
+        normalises every provider to it).
+
+        Transport, virtual key, accounting tags, retry/backoff and per-attempt
+        usage folding into the active `usage_tally` are the same path as
+        `chat_json` (`_post_with_backoff`). There is no corrective retry: a
+        malformed `arguments` string is returned as a `ToolCall` with
+        `arguments_error` set, never raised. `max_attempts` defaults to the full
+        ladder like `chat_json`; user-facing agent loops pass a smaller cap.
+
+        `tools` and `tool_choice` are omitted from the body when `tools` is
+        empty (providers reject `tools: []`). `parallel_tool_calls` is sent only
+        when False: True is the provider default, and some providers reject the
+        parameter outright.
+        """
+        body: dict = {"model": model, "messages": messages}
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = _tool_choice_body(tool_choice)
+            if not parallel_tool_calls:
+                body["parallel_tool_calls"] = False
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+        if tags is not None:
+            body = tags.apply_to_body(body)
+        resp = await self._post_with_backoff(
+            "/v1/chat/completions",
+            body,
+            max_attempts=max_attempts,
+            backoff_schedule=backoff_schedule,
+        )
+        payload = resp.json()
+        choice = (payload.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        return ToolReply(
+            content=message.get("content") or "",
+            tool_calls=[
+                _parse_tool_call(i, call) for i, call in enumerate(message.get("tool_calls") or [])
+            ],
+            usage=payload.get("usage") if isinstance(payload.get("usage"), dict) else None,
+            finish_reason=choice.get("finish_reason"),
+            message=message,
+        )
+
     async def chat_stream(
         self,
         model: str,
@@ -359,4 +521,12 @@ class LLMClient:
         await self._http.aclose()
 
 
-__all__ = ["MAX_HTTP_ATTEMPTS", "RETRYABLE_STATUS", "LLMClient", "LLMOutputError"]
+__all__ = [
+    "MAX_HTTP_ATTEMPTS",
+    "RETRYABLE_STATUS",
+    "LLMClient",
+    "LLMOutputError",
+    "ToolCall",
+    "ToolChoice",
+    "ToolReply",
+]
