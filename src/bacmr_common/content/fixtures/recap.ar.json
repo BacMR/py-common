@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "kind": "recap",
+  "lang": "ar",
+  "dir": "rtl",
+  "audience": "student",
+  "title": "معادلات الدرجة الثانية",
+  "chapter_id": "ch-7as-math-03",
+  "blocks": [
+    {
+      "type": "heading",
+      "lang": "ar",
+      "dir": "rtl",
+      "level": 1,
+      "text": "معادلات الدرجة الثانية"
+    },
+    {
+      "type": "paragraph",
+      "lang": "ar",
+      "dir": "rtl",
+      "text": "- المميز $\\Delta=b^2-4ac$ يحدد عدد الحلول."
+    },
+    {
+      "type": "paragraph",
+      "lang": "ar",
+      "dir": "rtl",
+      "text": "- إذا $\\Delta=0$: $x_0=-\\frac{b}{2a}$."
+    },
+    {
+      "type": "definition",
+      "lang": "ar",
+      "dir": "rtl",
+      "term": "المميِّز",
+      "text": "نسمي العدد $\\Delta=b^2-4ac$ **مميز** المعادلة."
+    },
+    {
+      "type": "figure",
+      "lang": "ar",
+      "dir": "rtl",
+      "figure_id": "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f",
+      "caption": "التمثيل البياني للدالة $f(x)=x^2-5x+6$"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43,
+        44
+      ],
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    }
+  ]
+}

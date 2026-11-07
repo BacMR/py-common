@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "kind": "lesson",
+  "lang": "ar",
+  "dir": "rtl",
+  "audience": "student",
+  "title": "معادلات الدرجة الثانية",
+  "chapter_id": "ch-7as-math-03",
+  "blocks": [
+    {
+      "type": "heading",
+      "lang": "ar",
+      "dir": "rtl",
+      "level": 1,
+      "text": "معادلات الدرجة الثانية",
+      "id": "title"
+    },
+    {
+      "type": "callout",
+      "lang": "ar",
+      "dir": "rtl",
+      "variant": "objective",
+      "text": "المعادلة من الدرجة الثانية هي معادلة من الشكل $ax^2+bx+c=0$ حيث $a\\neq 0$."
+    },
+    {
+      "type": "paragraph",
+      "lang": "ar",
+      "dir": "rtl",
+      "text": "المعادلة من الدرجة الثانية هي معادلة من الشكل $ax^2+bx+c=0$ حيث $a\\neq 0$."
+    },
+    {
+      "type": "definition",
+      "lang": "ar",
+      "dir": "rtl",
+      "term": "المميِّز",
+      "text": "نسمي العدد $\\Delta=b^2-4ac$ **مميز** المعادلة.",
+      "id": "def-discriminant"
+    },
+    {
+      "type": "paragraph",
+      "lang": "fr",
+      "dir": "ltr",
+      "text": "discriminant"
+    },
+    {
+      "type": "formula",
+      "lang": "ar",
+      "dir": "rtl",
+      "latex": "x_{1,2}=\\frac{-b\\pm\\sqrt{\\Delta}}{2a}",
+      "caption": "صيغة الحلول عندما $\\Delta>0$"
+    },
+    {
+      "type": "formula",
+      "lang": "ar",
+      "dir": "rtl",
+      "latex": "\\Delta=\\begin{cases} b^2-4ac \\\\ \\left(b-2\\sqrt{ac}\\right)\\left(b+2\\sqrt{ac}\\right) \\end{cases}"
+    },
+    {
+      "type": "example",
+      "lang": "ar",
+      "dir": "rtl",
+      "title": "مثال محلول",
+      "statement": "حل المعادلة $x^2-5x+6=0$.",
+      "solution_steps": [
+        "$a=1$ و $b=-5$ و $c=6$.",
+        "$\\Delta=25-24=1>0$ إذن للمعادلة حلان.",
+        "$x_1=2$ و $x_2=3$."
+      ]
+    },
+    {
+      "type": "figure",
+      "lang": "ar",
+      "dir": "rtl",
+      "figure_id": "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f",
+      "caption": "التمثيل البياني للدالة $f(x)=x^2-5x+6$",
+      "alt": "التمثيل البياني للدالة $f(x)=x^2-5x+6$"
+    },
+    {
+      "type": "table",
+      "lang": "ar",
+      "dir": "rtl",
+      "caption": "عدد الحلول حسب إشارة المميز",
+      "header": [
+        "إشارة $\\Delta$",
+        "عدد الحلول"
+      ],
+      "rows": [
+        [
+          "$\\Delta>0$",
+          "حلان"
+        ],
+        [
+          "$\\Delta=0$",
+          "حل مضاعف"
+        ],
+        [
+          "$\\Delta<0$",
+          "لا يوجد حل في $\\mathbb{R}$"
+        ]
+      ]
+    },
+    {
+      "type": "callout",
+      "lang": "ar",
+      "dir": "rtl",
+      "variant": "common_mistake",
+      "text": "لا تنسَ أن $a\\neq 0$؛ إذا كان $a=0$ فالمعادلة من الدرجة الأولى."
+    },
+    {
+      "type": "source",
+      "lang": "ar",
+      "dir": "rtl",
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43
+      ],
+      "label": "الكتاب المدرسي 7AS، ص. 42"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43,
+        44
+      ],
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    }
+  ]
+}

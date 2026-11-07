@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "kind": "recap",
+  "lang": "fr",
+  "dir": "ltr",
+  "audience": "student",
+  "title": "Équations du second degré",
+  "chapter_id": "ch-7as-math-03",
+  "blocks": [
+    {
+      "type": "heading",
+      "lang": "fr",
+      "dir": "ltr",
+      "level": 1,
+      "text": "Équations du second degré"
+    },
+    {
+      "type": "paragraph",
+      "lang": "fr",
+      "dir": "ltr",
+      "text": "- Le discriminant $\\Delta=b^2-4ac$ donne le nombre de solutions."
+    },
+    {
+      "type": "paragraph",
+      "lang": "fr",
+      "dir": "ltr",
+      "text": "- Si $\\Delta=0$ : $x_0=-\\frac{b}{2a}$."
+    },
+    {
+      "type": "definition",
+      "lang": "fr",
+      "dir": "ltr",
+      "term": "Discriminant",
+      "text": "On appelle **discriminant** le nombre $\\Delta=b^2-4ac$."
+    },
+    {
+      "type": "figure",
+      "lang": "fr",
+      "dir": "ltr",
+      "figure_id": "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f",
+      "caption": "Courbe de $f(x)=x^2-5x+6$"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43,
+        44
+      ],
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    }
+  ]
+}

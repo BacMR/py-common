@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "kind": "board",
+  "lang": "fr",
+  "dir": "ltr",
+  "audience": "teacher",
+  "title": "Équations du second degré",
+  "chapter_id": "ch-7as-math-03",
+  "blocks": [
+    {
+      "type": "heading",
+      "lang": "fr",
+      "dir": "ltr",
+      "level": 1,
+      "text": "Équations du second degré"
+    },
+    {
+      "type": "board_zone",
+      "lang": "fr",
+      "dir": "ltr",
+      "zone": "left",
+      "title": "Définition",
+      "items": [
+        "On appelle **discriminant** le nombre $\\Delta=b^2-4ac$."
+      ],
+      "minutes": 10
+    },
+    {
+      "type": "board_zone",
+      "lang": "fr",
+      "dir": "ltr",
+      "zone": "center",
+      "title": "Exemple",
+      "items": [
+        "$a=1$, $b=-5$, $c=6$.",
+        "$\\Delta=25-24=1>0$ : deux solutions.",
+        "$x_1=2$ et $x_2=3$."
+      ],
+      "minutes": 20
+    },
+    {
+      "type": "board_zone",
+      "lang": "fr",
+      "dir": "ltr",
+      "zone": "right",
+      "title": "Exercice en classe",
+      "items": [
+        "Résoudre $2x^2-8=0$.",
+        "Devoir : exercice 3 p. 45."
+      ],
+      "minutes": 15
+    },
+    {
+      "type": "formula",
+      "lang": "fr",
+      "dir": "ltr",
+      "latex": "\\Delta=b^2-4ac"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43,
+        44
+      ],
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    },
+    {
+      "document_id": "7a2b3c4d-5e6f-4a1b-9c2d-3e4f5a6b7c8d",
+      "source_kind": "teacher_guide",
+      "pages": [
+        18
+      ]
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "kind": "lesson",
+  "lang": "fr",
+  "dir": "ltr",
+  "audience": "teacher",
+  "title": "Équations du second degré",
+  "chapter_id": "ch-7as-math-03",
+  "blocks": [
+    {
+      "type": "heading",
+      "lang": "fr",
+      "dir": "ltr",
+      "level": 1,
+      "text": "Équations du second degré",
+      "id": "title"
+    },
+    {
+      "type": "callout",
+      "lang": "fr",
+      "dir": "ltr",
+      "variant": "objective",
+      "text": "Une équation du second degré s'écrit $ax^2+bx+c=0$ avec $a\\neq 0$."
+    },
+    {
+      "type": "paragraph",
+      "lang": "fr",
+      "dir": "ltr",
+      "text": "Une équation du second degré s'écrit $ax^2+bx+c=0$ avec $a\\neq 0$."
+    },
+    {
+      "type": "definition",
+      "lang": "fr",
+      "dir": "ltr",
+      "term": "Discriminant",
+      "text": "On appelle **discriminant** le nombre $\\Delta=b^2-4ac$.",
+      "id": "def-discriminant"
+    },
+    {
+      "type": "paragraph",
+      "lang": "ar",
+      "dir": "rtl",
+      "text": "المميز"
+    },
+    {
+      "type": "formula",
+      "lang": "fr",
+      "dir": "ltr",
+      "latex": "x_{1,2}=\\frac{-b\\pm\\sqrt{\\Delta}}{2a}",
+      "caption": "Solutions lorsque $\\Delta>0$"
+    },
+    {
+      "type": "formula",
+      "lang": "fr",
+      "dir": "ltr",
+      "latex": "\\Delta=\\begin{cases} b^2-4ac \\\\ \\left(b-2\\sqrt{ac}\\right)\\left(b+2\\sqrt{ac}\\right) \\end{cases}"
+    },
+    {
+      "type": "example",
+      "lang": "fr",
+      "dir": "ltr",
+      "title": "Exemple corrigé",
+      "statement": "Résoudre $x^2-5x+6=0$.",
+      "solution_steps": [
+        "$a=1$, $b=-5$, $c=6$.",
+        "$\\Delta=25-24=1>0$ : deux solutions.",
+        "$x_1=2$ et $x_2=3$."
+      ]
+    },
+    {
+      "type": "figure",
+      "lang": "fr",
+      "dir": "ltr",
+      "figure_id": "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f",
+      "caption": "Courbe de $f(x)=x^2-5x+6$",
+      "alt": "Courbe de $f(x)=x^2-5x+6$"
+    },
+    {
+      "type": "table",
+      "lang": "fr",
+      "dir": "ltr",
+      "caption": "Nombre de solutions selon le signe de $\\Delta$",
+      "header": [
+        "Signe de $\\Delta$",
+        "Solutions"
+      ],
+      "rows": [
+        [
+          "$\\Delta>0$",
+          "deux"
+        ],
+        [
+          "$\\Delta=0$",
+          "une (double)"
+        ],
+        [
+          "$\\Delta<0$",
+          "aucune dans $\\mathbb{R}$"
+        ]
+      ]
+    },
+    {
+      "type": "callout",
+      "lang": "fr",
+      "dir": "ltr",
+      "variant": "common_mistake",
+      "text": "N'oubliez pas $a\\neq 0$ : si $a=0$, l'équation est du premier degré."
+    },
+    {
+      "type": "source",
+      "lang": "fr",
+      "dir": "ltr",
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43
+      ],
+      "label": "Manuel 7AS, p. 42"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43,
+        44
+      ],
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    },
+    {
+      "document_id": "7a2b3c4d-5e6f-4a1b-9c2d-3e4f5a6b7c8d",
+      "source_kind": "teacher_guide",
+      "pages": [
+        18
+      ]
+    }
+  ]
+}

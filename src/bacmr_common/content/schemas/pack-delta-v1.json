@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.bacmr.com/pack-delta-v1.json",
+  "$defs": {
+    "DeltaItem": {
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "format": "uuid",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "lesson",
+            "teacher_notes",
+            "board",
+            "exercises",
+            "test_bank",
+            "recap",
+            "parent_brief"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "schema_version": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "content_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "chapter_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Chapter Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_id",
+        "kind",
+        "version",
+        "content_hash",
+        "bytes",
+        "chapter_id"
+      ],
+      "title": "DeltaItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What changed between two versions of the same pack.",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "curriculum_id": {
+      "format": "uuid",
+      "title": "Curriculum Id",
+      "type": "string"
+    },
+    "audience": {
+      "enum": [
+        "student",
+        "teacher",
+        "parent"
+      ],
+      "title": "Audience",
+      "type": "string"
+    },
+    "lang": {
+      "enum": [
+        "ar",
+        "fr",
+        "en"
+      ],
+      "title": "Lang",
+      "type": "string"
+    },
+    "since": {
+      "minimum": 0,
+      "title": "Since",
+      "type": "integer"
+    },
+    "pack_version": {
+      "minimum": 1,
+      "title": "Pack Version",
+      "type": "integer"
+    },
+    "upserted": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DeltaItem"
+      },
+      "title": "Upserted",
+      "type": "array"
+    },
+    "removed": {
+      "default": [],
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "title": "Removed",
+      "type": "array"
+    },
+    "chapters_changed": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Chapters Changed",
+      "type": "array"
+    },
+    "chapters_removed": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "title": "Chapters Removed",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "curriculum_id",
+    "audience",
+    "lang",
+    "since",
+    "pack_version"
+  ],
+  "title": "BacMR content pack delta v1",
+  "type": "object"
+}
