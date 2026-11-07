@@ -14,7 +14,7 @@
 
 **Provenance:** extracted with history (see `git log`).
 
-**Status (2026-10-22):** extracted with history; version `0.3.0` added the explicit `CallTags.task` Spend bucket (BacMR/docs#55); version `0.4.0` adds `bacmr_common.language`, the one Arabic-script rule shared by knowledge retrieval and the tutor (BacMR/docs#9). Tag `v0.4.0` is cut on `dev` after that PR merges. Version `0.4.1` adds `bacmr_common.amqp.client_properties` and a `connection_name` parameter on `EventConsumer` / `OutboxPoller`, so every broker connection carries a name the gateway status page can attribute (BacMR/docs#83). Version `0.5.0` adds the `news-classify` purpose and the `news-classification` Spend task for the education news monitor (BacMR/docs#111). Version `0.6.0` adds `bacmr_common.logging`, the one log contract for every Python service (BacMR/docs#118); `EventConsumer` binds and carries `x-request-id`/`x-*-id` headers and logs `event.consumed`/`event.failed`. Version `0.6.1` keeps numeric values under secret-looking keys (`prompt_tokens`, `tokens_used`) instead of redacting them. Version `0.7.0` adds `LLMClient.chat_tools`, OpenAI-format tool calling for the agentic tutor (BacMR/py-common#16, BacMR/docs#69); existing methods are unchanged. Version `0.7.1` widens `language` in `content.document.registered.v1` / `content.document.ingested.v1` to the national languages taught in 1AF-2AF: `ff` (Pulaar), `wo` (Wolof), `snk` (Soninke, ISO 639-2; no 639-1 code) (BacMR/knowledge#212). Additive: every earlier payload still validates. CI: ruff + pytest (integration tests are opt-in, see below).
+**Status (2026-10-22):** extracted with history; version `0.3.0` added the explicit `CallTags.task` Spend bucket (BacMR/docs#55); version `0.4.0` adds `bacmr_common.language`, the one Arabic-script rule shared by knowledge retrieval and the tutor (BacMR/docs#9). Tag `v0.4.0` is cut on `dev` after that PR merges. Version `0.4.1` adds `bacmr_common.amqp.client_properties` and a `connection_name` parameter on `EventConsumer` / `OutboxPoller`, so every broker connection carries a name the gateway status page can attribute (BacMR/docs#83). Version `0.5.0` adds the `news-classify` purpose and the `news-classification` Spend task for the education news monitor (BacMR/docs#111). Version `0.6.0` adds `bacmr_common.logging`, the one log contract for every Python service (BacMR/docs#118); `EventConsumer` binds and carries `x-request-id`/`x-*-id` headers and logs `event.consumed`/`event.failed`. Version `0.6.1` keeps numeric values under secret-looking keys (`prompt_tokens`, `tokens_used`) instead of redacting them. Version `0.7.0` adds `LLMClient.chat_tools`, OpenAI-format tool calling for the agentic tutor (BacMR/py-common#16, BacMR/docs#69); existing methods are unchanged. Version `0.7.1` widens `language` in `content.document.registered.v1` / `content.document.ingested.v1` to the national languages taught in 1AF-2AF: `ff` (Pulaar), `wo` (Wolof), `snk` (Soninke, ISO 639-2; no 639-1 code) (BacMR/knowledge#212). Additive: every earlier payload still validates. Version `0.8.0` adds `bacmr_common.content`, the ready-content contracts: content block schema v1, pack manifests and deltas, the shared AR/FR fixtures and a size/hash helper (BacMR/py-common#19, Phase 0 of BacMR/docs#230). Additive: no existing module or event contract changes. CI: ruff + pytest (integration tests are opt-in, see below).
 
 ## Usage
 
@@ -30,6 +30,7 @@ Packages (distribution `bacmr-py-common`, Python >= 3.12):
 | `bacmr_common.usage`, `.subjects`, `._sql` | usage tally, subject-profile table, SQL identifier guard |
 | `bacmr_common.language` | `is_arabic` / `arabic_share`: the one Arabic-script rule (≥ 30 % of letters, five Arabic blocks) used by retrieval and the tutor |
 | `bacmr_common.logging` | JSON log contract, request-id context, redaction, ASGI `RequestIdMiddleware`, HTTP/AMQP propagation helpers (BacMR/docs#118) |
+| `bacmr_common.content` | ready-content contracts: `ContentItem` block schema v1, `PackManifest`/`PackDelta`, JSON Schemas, AR/FR fixtures, `content_hash`/`compressed_size` (BacMR/py-common#19) |
 | `bacmr_contracts` | event envelope + JSON schemas (`make_envelope`, `validate_event`) |
 
 ```bash
@@ -39,6 +40,28 @@ uv run pytest -q          # unit tests; `-m integration` needs the isolated bacm
 ```
 
 Install in a service: `bacmr-py-common @ git+ssh://git@bacmr-py-common/BacMR/py-common.git@v0.1.0`.
+
+### Ready content (v0.8.0, BacMR/py-common#19)
+
+One body format for every generated item (lesson, teacher_notes, board, exercises, test_bank, recap, parent_brief), consumed by knowledge (writer and gate), the gateway, the Flutter and React renderers and the PDF templates (plan `docs/plans/2026-11-07-ready-content-offline-first.md` §4.1, §4.4).
+
+```python
+from bacmr_common.content import parse_item, content_hash, compressed_size, diff_manifests
+
+item = parse_item(body_json)  # ContentItem, raises pydantic.ValidationError
+content_hash(item)  # "sha256:<hex>" of canonical JSON (column, manifest, bundle URL)
+compressed_size(item)  # gzip-9 bytes, for the size budgets ("brotli" if installed)
+delta = diff_manifests(old_manifest, new_manifest)  # PackDelta for /content/packs/{id}/delta
+```
+
+- **Envelope:** `schema_version` (1), `kind`, `lang` (`ar`/`fr`/`en`), `dir`, `audience` (`student`/`teacher`/`parent`), `title`, optional `chapter_id`, `blocks`, `sources` (`document_id`, `source_kind` textbook/teacher_guide/exam/materials/other, `pages`, `chunk_ids`, `figure_ids`).
+- **Blocks** (discriminated by `type`): `heading`, `paragraph`, `definition`, `formula`, `example`, `figure` (`figure_id`), `table`, `callout`, `board_zone`, `exercise` (`id`, `exercise_type` mcq/multi/true_false/short/numeric/open, `stem`, `choices`, 0-based `correct_choices`, `answer`, `solution_steps`, `difficulty`, `concept_ids`, `points`), `source`. Unknown types and unknown fields are rejected.
+- **Direction:** every block and the item carry `lang` and `dir`; `ar` must be `rtl`, the others `ltr`. Mixing is explicit: a French term inside an Arabic lesson is its own `lang: fr, dir: ltr` block. LaTeX is always laid out LTR.
+- **Text:** a Markdown subset (bold, italic, lists, code) with inline math `$...$`; no raw HTML, images, `#` headings or `$$`. `formula.latex` has no delimiters and must pass `latex_errors` (balanced braces, `\begin`/`\end`, `\left`/`\right`; no `\input`, `\def`, `\newcommand`, `\href`, ...).
+- **Rules:** kind × audience matrix (`KIND_AUDIENCES`: board and teacher_notes are teacher-only, parent_brief parent-only); student/parent items never cite a `teacher_guide` source; exercises/test_bank need an exercise block, board needs a `board_zone` (and only board may have one); block ids unique.
+- **Packs:** `PackManifest` = curriculum × audience × lang, monotonic `pack_version`, ordered chapters with `bundle_hash` and the published items (`item_id`, `kind`, `version`, `content_hash`, `bytes`) and figures; one item per kind per chapter.
+- **Files** (package data): `bacmr_common/content/schemas/{content-v1,pack-manifest-v1,pack-delta-v1}.json` (draft 2020-12; `json_schemas()`) and `bacmr_common/content/fixtures/<kind>.<lang>.json` (one AR and one FR item per kind, Arabic + LaTeX mixed; `fixtures()`). Renderers test against these fixtures. After a model change run `uv run python -m bacmr_common.content.export`; a test fails when the committed schemas drift. The JSON Schema cannot express the brace / pairing / kind-block rules, so Python consumers validate with the models.
+- **Versioning:** changes inside v1 are additive only (new optional field, widened enum). A new block type or a changed meaning bumps `schema_version` to 2 with a new `content-v2.json`, because old offline renderers would reject it.
 
 ### Tool calling (v0.7.0, BacMR/py-common#16)
 

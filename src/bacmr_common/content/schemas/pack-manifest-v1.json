@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.bacmr.com/pack-manifest-v1.json",
+  "$defs": {
+    "PackChapter": {
+      "additionalProperties": false,
+      "properties": {
+        "chapter_id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Chapter Id",
+          "type": "string"
+        },
+        "position": {
+          "minimum": 0,
+          "title": "Position",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "bundle_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Bundle Hash",
+          "type": "string"
+        },
+        "items": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PackItem"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "figures": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PackFigure"
+          },
+          "title": "Figures",
+          "type": "array"
+        }
+      },
+      "required": [
+        "chapter_id",
+        "position",
+        "title",
+        "bundle_hash"
+      ],
+      "title": "PackChapter",
+      "type": "object"
+    },
+    "PackFigure": {
+      "additionalProperties": false,
+      "properties": {
+        "figure_id": {
+          "format": "uuid",
+          "title": "Figure Id",
+          "type": "string"
+        },
+        "content_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "title": "Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "figure_id",
+        "content_hash",
+        "bytes"
+      ],
+      "title": "PackFigure",
+      "type": "object"
+    },
+    "PackItem": {
+      "additionalProperties": false,
+      "properties": {
+        "item_id": {
+          "format": "uuid",
+          "title": "Item Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "lesson",
+            "teacher_notes",
+            "board",
+            "exercises",
+            "test_bank",
+            "recap",
+            "parent_brief"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "version": {
+          "minimum": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "schema_version": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "content_hash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Hash",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "title": "Bytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "item_id",
+        "kind",
+        "version",
+        "content_hash",
+        "bytes"
+      ],
+      "title": "PackItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "curriculum_id": {
+      "format": "uuid",
+      "title": "Curriculum Id",
+      "type": "string"
+    },
+    "audience": {
+      "enum": [
+        "student",
+        "teacher",
+        "parent"
+      ],
+      "title": "Audience",
+      "type": "string"
+    },
+    "lang": {
+      "enum": [
+        "ar",
+        "fr",
+        "en"
+      ],
+      "title": "Lang",
+      "type": "string"
+    },
+    "pack_version": {
+      "minimum": 1,
+      "title": "Pack Version",
+      "type": "integer"
+    },
+    "built_at": {
+      "format": "date-time",
+      "title": "Built At",
+      "type": "string"
+    },
+    "chapters": {
+      "items": {
+        "$ref": "#/$defs/PackChapter"
+      },
+      "title": "Chapters",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "curriculum_id",
+    "audience",
+    "lang",
+    "pack_version",
+    "built_at",
+    "chapters"
+  ],
+  "title": "BacMR content pack manifest v1",
+  "type": "object"
+}

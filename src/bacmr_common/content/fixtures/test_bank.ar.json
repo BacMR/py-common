@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "kind": "test_bank",
+  "lang": "ar",
+  "dir": "rtl",
+  "audience": "student",
+  "title": "معادلات الدرجة الثانية",
+  "chapter_id": "ch-7as-math-03",
+  "blocks": [
+    {
+      "type": "exercise",
+      "lang": "ar",
+      "dir": "rtl",
+      "id": "tb-1",
+      "exercise_type": "mcq",
+      "stem": "ما عدد حلول المعادلة $x^2+x+1=0$ في $\\mathbb{R}$؟",
+      "choices": [
+        "0",
+        "1",
+        "2"
+      ],
+      "correct_choices": [
+        0
+      ],
+      "answer": "لا يوجد حل لأن $\\Delta=-3<0$.",
+      "solution_steps": [
+        "$\\Delta=1-4=-3$.",
+        "$\\Delta<0$ إذن لا حل."
+      ],
+      "difficulty": "easy",
+      "concept_ids": [
+        "concept:discriminant"
+      ],
+      "points": 1
+    },
+    {
+      "type": "exercise",
+      "lang": "ar",
+      "dir": "rtl",
+      "id": "tb-2",
+      "exercise_type": "short",
+      "stem": "حل المعادلة $2x^2-8=0$.",
+      "answer": "$x=-2$ أو $x=2$.",
+      "solution_steps": [
+        "$x^2=4$.",
+        "$x=\\pm 2$."
+      ],
+      "difficulty": "medium",
+      "concept_ids": [
+        "concept:second-degree-equation"
+      ],
+      "points": 2
+    },
+    {
+      "type": "exercise",
+      "lang": "ar",
+      "dir": "rtl",
+      "id": "tb-3",
+      "exercise_type": "true_false",
+      "stem": "المعادلة $x^2=-1$ لها حل في $\\mathbb{R}$.",
+      "choices": [
+        "صحيح",
+        "خطأ"
+      ],
+      "correct_choices": [
+        1
+      ],
+      "answer": "خطأ",
+      "solution_steps": [
+        "$x^2\\geq 0$ لكل $x$."
+      ],
+      "difficulty": "hard",
+      "concept_ids": [
+        "concept:discriminant"
+      ],
+      "points": 1,
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43,
+        44
+      ],
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    },
+    {
+      "document_id": "8b3c4d5e-6f7a-4b2c-8d3e-4f5a6b7c8d9e",
+      "source_kind": "exam",
+      "pages": [
+        2
+      ]
+    }
+  ]
+}

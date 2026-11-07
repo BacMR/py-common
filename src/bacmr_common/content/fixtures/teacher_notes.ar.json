@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "kind": "teacher_notes",
+  "lang": "ar",
+  "dir": "rtl",
+  "audience": "teacher",
+  "title": "معادلات الدرجة الثانية",
+  "chapter_id": "ch-7as-math-03",
+  "blocks": [
+    {
+      "type": "heading",
+      "lang": "ar",
+      "dir": "rtl",
+      "level": 2,
+      "text": "معادلات الدرجة الثانية"
+    },
+    {
+      "type": "callout",
+      "lang": "ar",
+      "dir": "rtl",
+      "variant": "common_mistake",
+      "text": "يخلط كثير من التلاميذ بين $b^2-4ac$ و $b^2+4ac$."
+    },
+    {
+      "type": "callout",
+      "lang": "ar",
+      "dir": "rtl",
+      "variant": "tip",
+      "text": "خصص 10 دقائق لحساب المميز."
+    },
+    {
+      "type": "source",
+      "lang": "ar",
+      "dir": "rtl",
+      "document_id": "7a2b3c4d-5e6f-4a1b-9c2d-3e4f5a6b7c8d",
+      "source_kind": "teacher_guide",
+      "pages": [
+        18
+      ],
+      "label": "الكتاب المدرسي 7AS، ص. 42"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "7a2b3c4d-5e6f-4a1b-9c2d-3e4f5a6b7c8d",
+      "source_kind": "teacher_guide",
+      "pages": [
+        18
+      ]
+    },
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43,
+        44
+      ],
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    }
+  ]
+}

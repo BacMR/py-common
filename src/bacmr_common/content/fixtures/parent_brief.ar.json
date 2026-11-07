@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "parent_brief",
+  "lang": "ar",
+  "dir": "rtl",
+  "audience": "parent",
+  "title": "معادلات الدرجة الثانية",
+  "chapter_id": "ch-7as-math-03",
+  "blocks": [
+    {
+      "type": "paragraph",
+      "lang": "ar",
+      "dir": "rtl",
+      "text": "يتعلم طفلك هذا الأسبوع حل معادلات الدرجة الثانية."
+    },
+    {
+      "type": "paragraph",
+      "lang": "ar",
+      "dir": "rtl",
+      "text": "1. ما هو المميز؟\n2. متى لا يكون للمعادلة حل؟\n3. هل يمكنك حل $x^2-1=0$؟"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43,
+        44
+      ],
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    }
+  ]
+}

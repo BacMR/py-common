@@ -1,0 +1,1568 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.bacmr.com/content-v1.json",
+  "$defs": {
+    "BoardZone": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "description": "One zone of a whiteboard plan: what the teacher writes there, in order.",
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "board_zone",
+          "title": "Type",
+          "type": "string"
+        },
+        "zone": {
+          "enum": [
+            "left",
+            "center",
+            "right",
+            "top",
+            "bottom",
+            "full"
+          ],
+          "title": "Zone",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "minItems": 1,
+          "title": "Items",
+          "type": "array"
+        },
+        "minutes": {
+          "anyOf": [
+            {
+              "maximum": 240,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minutes"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "zone",
+        "title",
+        "items"
+      ],
+      "title": "BoardZone",
+      "type": "object"
+    },
+    "Callout": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "callout",
+          "title": "Type",
+          "type": "string"
+        },
+        "variant": {
+          "enum": [
+            "warning",
+            "common_mistake",
+            "tip",
+            "note",
+            "objective",
+            "prerequisite"
+          ],
+          "title": "Variant",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "text": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "variant",
+        "text"
+      ],
+      "title": "Callout",
+      "type": "object"
+    },
+    "Definition": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "definition",
+          "title": "Type",
+          "type": "string"
+        },
+        "term": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Term",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "term",
+        "text"
+      ],
+      "title": "Definition",
+      "type": "object"
+    },
+    "Example": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "example",
+          "title": "Type",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "statement": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "solution_steps": {
+          "items": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "minItems": 1,
+          "title": "Solution Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "statement",
+        "solution_steps"
+      ],
+      "title": "Example",
+      "type": "object"
+    },
+    "Exercise": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "description": "A practice or test item. `correct_choices` are 0-based indexes into `choices`.\n\nFor `true_false`, choices are the two localized labels and `correct_choices` has one\nindex. `answer` is the final answer in words or a value; `solution_steps` the worked\nsolution. In student test banks the gateway hides `answer`, `correct_choices` and\n`solution_steps` until the attempt is submitted (plan §4.1).",
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "exercise",
+          "title": "Type",
+          "type": "string"
+        },
+        "exercise_type": {
+          "enum": [
+            "mcq",
+            "multi",
+            "true_false",
+            "short",
+            "numeric",
+            "open"
+          ],
+          "title": "Exercise Type",
+          "type": "string"
+        },
+        "stem": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Stem",
+          "type": "string"
+        },
+        "choices": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 8,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Choices"
+        },
+        "correct_choices": {
+          "anyOf": [
+            {
+              "items": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Correct Choices"
+        },
+        "answer": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Answer",
+          "type": "string"
+        },
+        "solution_steps": {
+          "items": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "minItems": 1,
+          "title": "Solution Steps",
+          "type": "array"
+        },
+        "difficulty": {
+          "enum": [
+            "easy",
+            "medium",
+            "hard"
+          ],
+          "title": "Difficulty",
+          "type": "string"
+        },
+        "concept_ids": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Concept Ids",
+          "type": "array"
+        },
+        "points": {
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "title": "Points",
+          "type": "number"
+        },
+        "figure_ids": {
+          "default": [],
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Figure Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "id",
+        "type",
+        "exercise_type",
+        "stem",
+        "answer",
+        "solution_steps",
+        "difficulty",
+        "points"
+      ],
+      "title": "Exercise",
+      "type": "object"
+    },
+    "Figure": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "description": "A figure crop knowledge already stores (`content.figures`), by id.",
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "figure",
+          "title": "Type",
+          "type": "string"
+        },
+        "figure_id": {
+          "format": "uuid",
+          "title": "Figure Id",
+          "type": "string"
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caption"
+        },
+        "alt": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alt"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "figure_id"
+      ],
+      "title": "Figure",
+      "type": "object"
+    },
+    "Formula": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "description": "One display formula. `latex` has no `$` delimiters and is always rendered LTR;\n`lang`/`dir` apply to the caption and to the block's placement in the page.",
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "formula",
+          "title": "Type",
+          "type": "string"
+        },
+        "latex": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "pattern": "^(?![\\s\\S]*\\\\(?:input|include|write|immediate|openout|openin|read|def|gdef|edef|xdef|let|newcommand|renewcommand|providecommand|DeclareMathOperator|catcode|csname|url|href|includegraphics|special)(?![A-Za-z]))",
+          "title": "Latex",
+          "type": "string"
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caption"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "latex"
+      ],
+      "title": "Formula",
+      "type": "object"
+    },
+    "Heading": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "heading",
+          "title": "Type",
+          "type": "string"
+        },
+        "level": {
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Level",
+          "type": "integer"
+        },
+        "text": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "level",
+        "text"
+      ],
+      "title": "Heading",
+      "type": "object"
+    },
+    "Paragraph": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "description": "Markdown subset (see `markdown_errors`), inline math as `$...$`.",
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "paragraph",
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "text"
+      ],
+      "title": "Paragraph",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "description": "An inline citation shown to the reader (\"Manuel 7AS, p. 42\").",
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "source",
+          "title": "Type",
+          "type": "string"
+        },
+        "document_id": {
+          "format": "uuid",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "source_kind": {
+          "enum": [
+            "textbook",
+            "teacher_guide",
+            "exam",
+            "materials",
+            "other"
+          ],
+          "title": "Source Kind",
+          "type": "string"
+        },
+        "pages": {
+          "default": [],
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 500,
+          "title": "Pages",
+          "type": "array"
+        },
+        "label": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "document_id",
+        "source_kind",
+        "label"
+      ],
+      "title": "Source",
+      "type": "object"
+    },
+    "SourceRef": {
+      "additionalProperties": false,
+      "description": "Where content came from: a document and its pages (chunk/figure ids optional).",
+      "properties": {
+        "document_id": {
+          "format": "uuid",
+          "title": "Document Id",
+          "type": "string"
+        },
+        "source_kind": {
+          "enum": [
+            "textbook",
+            "teacher_guide",
+            "exam",
+            "materials",
+            "other"
+          ],
+          "title": "Source Kind",
+          "type": "string"
+        },
+        "pages": {
+          "default": [],
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "maxItems": 500,
+          "title": "Pages",
+          "type": "array"
+        },
+        "chunk_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 500,
+          "title": "Chunk Ids",
+          "type": "array"
+        },
+        "figure_ids": {
+          "default": [],
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 200,
+          "title": "Figure Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "document_id",
+        "source_kind"
+      ],
+      "title": "SourceRef",
+      "type": "object"
+    },
+    "Table": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "table",
+          "title": "Type",
+          "type": "string"
+        },
+        "caption": {
+          "anyOf": [
+            {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caption"
+        },
+        "header": {
+          "items": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Header",
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "maxItems": 200,
+          "minItems": 1,
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "header",
+        "rows"
+      ],
+      "title": "Table",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "else": {
+        "properties": {
+          "dir": {
+            "const": "ltr"
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "lang": {
+            "const": "ar"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "dir": {
+            "const": "rtl"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "lesson"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "student",
+              "teacher"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "teacher_notes"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "teacher"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "board"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "teacher"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "exercises"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "student",
+              "teacher"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "test_bank"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "student",
+              "teacher"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "recap"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "parent",
+              "student",
+              "teacher"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "parent_brief"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "parent"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "description": "One generated item: chapter × kind × lang × audience (one version of it).",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "kind": {
+      "enum": [
+        "lesson",
+        "teacher_notes",
+        "board",
+        "exercises",
+        "test_bank",
+        "recap",
+        "parent_brief"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "lang": {
+      "enum": [
+        "ar",
+        "fr",
+        "en"
+      ],
+      "title": "Lang",
+      "type": "string"
+    },
+    "dir": {
+      "enum": [
+        "rtl",
+        "ltr"
+      ],
+      "title": "Dir",
+      "type": "string"
+    },
+    "audience": {
+      "enum": [
+        "student",
+        "teacher",
+        "parent"
+      ],
+      "title": "Audience",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "chapter_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Chapter Id"
+    },
+    "blocks": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "board_zone": "#/$defs/BoardZone",
+            "callout": "#/$defs/Callout",
+            "definition": "#/$defs/Definition",
+            "example": "#/$defs/Example",
+            "exercise": "#/$defs/Exercise",
+            "figure": "#/$defs/Figure",
+            "formula": "#/$defs/Formula",
+            "heading": "#/$defs/Heading",
+            "paragraph": "#/$defs/Paragraph",
+            "source": "#/$defs/Source",
+            "table": "#/$defs/Table"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/Heading"
+          },
+          {
+            "$ref": "#/$defs/Paragraph"
+          },
+          {
+            "$ref": "#/$defs/Definition"
+          },
+          {
+            "$ref": "#/$defs/Formula"
+          },
+          {
+            "$ref": "#/$defs/Example"
+          },
+          {
+            "$ref": "#/$defs/Figure"
+          },
+          {
+            "$ref": "#/$defs/Table"
+          },
+          {
+            "$ref": "#/$defs/Callout"
+          },
+          {
+            "$ref": "#/$defs/BoardZone"
+          },
+          {
+            "$ref": "#/$defs/Exercise"
+          },
+          {
+            "$ref": "#/$defs/Source"
+          }
+        ]
+      },
+      "maxItems": 2000,
+      "minItems": 1,
+      "title": "Blocks",
+      "type": "array"
+    },
+    "sources": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/SourceRef"
+      },
+      "maxItems": 200,
+      "title": "Sources",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "kind",
+    "lang",
+    "dir",
+    "audience",
+    "title",
+    "blocks"
+  ],
+  "title": "BacMR content item v1",
+  "type": "object"
+}

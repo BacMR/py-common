@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "parent_brief",
+  "lang": "fr",
+  "dir": "ltr",
+  "audience": "parent",
+  "title": "Équations du second degré",
+  "chapter_id": "ch-7as-math-03",
+  "blocks": [
+    {
+      "type": "paragraph",
+      "lang": "fr",
+      "dir": "ltr",
+      "text": "Cette semaine, votre enfant apprend à résoudre les équations du second degré."
+    },
+    {
+      "type": "paragraph",
+      "lang": "fr",
+      "dir": "ltr",
+      "text": "1. Qu'est-ce que le discriminant ?\n2. Quand l'équation n'a-t-elle pas de solution ?\n3. Sais-tu résoudre $x^2-1=0$ ?"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        42,
+        43,
+        44
+      ],
+      "figure_ids": [
+        "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
+      ]
+    }
+  ]
+}
