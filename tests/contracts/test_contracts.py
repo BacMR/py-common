@@ -68,3 +68,37 @@ def test_document_registered_schema_roundtrip():
         },
     )
     assert env["routing_key"] == "content.document.registered"
+
+
+def _registered(language: str) -> dict:
+    return {
+        "document_id": str(uuid.uuid4()),
+        "subject_id": "pulaar-1af",
+        "language": language,
+        "checksum_sha256": "0" * 64,
+    }
+
+
+@pytest.mark.parametrize("language", ["ar", "fr", "en", "ff", "wo", "snk"])
+def test_document_registered_accepts_curriculum_languages(language):
+    """knowledge#212: the 1AF-2AF national-language readers (Pulaar, Wolof, Soninke)."""
+    validate_event("content.document.registered", _registered(language))
+
+
+def test_document_registered_still_refuses_unknown_language():
+    with pytest.raises(jsonschema.ValidationError):
+        validate_event("content.document.registered", _registered("de"))
+
+
+@pytest.mark.parametrize("language", ["ff", "wo", "snk"])
+def test_document_ingested_accepts_national_languages(language):
+    validate_event(
+        "content.document.ingested",
+        {
+            "document_id": str(uuid.uuid4()),
+            "subject_id": "pulaar-1af",
+            "language": language,
+            "chunk_count": 3,
+            "source": "curriculum",
+        },
+    )
