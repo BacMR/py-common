@@ -13,7 +13,7 @@ Regenerate the committed JSON Schemas after a model change:
 from __future__ import annotations
 
 import json
-from importlib import resources
+from pathlib import Path
 from typing import Any
 
 from .models import (
@@ -57,7 +57,8 @@ SCHEMA_FILES = {
     "pack-delta-v1.json": PackDelta,
 }
 
-_PKG = resources.files("bacmr_common.content")
+# Package data next to this file (installed as regular files by the wheel).
+_PKG = Path(__file__).parent
 
 
 def build_json_schema(model: type) -> dict[str, Any]:
