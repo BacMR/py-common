@@ -783,7 +783,7 @@
         "latex": {
           "maxLength": 4000,
           "minLength": 1,
-          "pattern": "^(?![\\s\\S]*\\\\(?:input|include|write|immediate|openout|openin|read|def|gdef|edef|xdef|let|newcommand|renewcommand|providecommand|DeclareMathOperator|catcode|csname|url|href|includegraphics|special)(?![A-Za-z]))",
+          "pattern": "^(?![\\s\\S]*(?:\\\\(?:input|include|write|immediate|openout|openin|read|def|gdef|edef|xdef|let|newcommand|renewcommand|providecommand|DeclareMathOperator|catcode|csname|url|href|includegraphics|special|class|style|cssId|require|unicode|htmlClass|htmlId|htmlStyle|htmlData|newenvironment|renewenvironment|DeclareRobustCommand|expandafter)(?![A-Za-z])|\\^\\^))",
           "title": "Latex",
           "type": "string"
         },

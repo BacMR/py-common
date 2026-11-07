@@ -86,10 +86,29 @@ FORBIDDEN_LATEX = (
     "href",
     "includegraphics",
     "special",
+    # MathJax extensions that emit HTML/CSS or load code
+    "class",
+    "style",
+    "cssId",
+    "require",
+    "unicode",
+    # KaTeX HTML extensions (also disabled by `trust: false`)
+    "htmlClass",
+    "htmlId",
+    "htmlStyle",
+    "htmlData",
+    # more definition / expansion primitives
+    "newenvironment",
+    "renewenvironment",
+    "DeclareRobustCommand",
+    "expandafter",
 )
 _FORBIDDEN_RE = re.compile(r"\\(?:" + "|".join(FORBIDDEN_LATEX) + r")(?![A-Za-z])")
-# The same rule as a JSON Schema `pattern` (ECMA-262 compatible).
-FORBIDDEN_LATEX_PATTERN = r"^(?![\s\S]*\\(?:" + "|".join(FORBIDDEN_LATEX) + r")(?![A-Za-z]))"
+# The same rule as a JSON Schema `pattern` (ECMA-262 compatible), including the TeX `^^`
+# character escape (`^^5cinput` is `\input`).
+FORBIDDEN_LATEX_PATTERN = (
+    r"^(?![\s\S]*(?:\\(?:" + "|".join(FORBIDDEN_LATEX) + r")(?![A-Za-z])|\^\^))"
+)
 _ENV_RE = re.compile(r"\\(begin|end)\{([A-Za-z*]+)\}")
 
 
@@ -107,6 +126,8 @@ def latex_errors(latex: str) -> list[str]:
         errors.append("formula must not contain $ delimiters")
     if m := _FORBIDDEN_RE.search(latex):
         errors.append(f"forbidden LaTeX command {m.group(0)}")
+    if "^^" in latex:
+        errors.append("TeX ^^ character escapes are not allowed")
     depth = 0
     i = 0
     while i < len(latex):
@@ -142,20 +163,34 @@ def latex_errors(latex: str) -> list[str]:
 
 
 _HTML_RE = re.compile(r"<\s*/?\s*[A-Za-z!]")
+_LINK_RE = re.compile(r"\]\s*\(")  # inline link / image target: [text](url)
+_LINK_DEF_RE = re.compile(r"^\s*\[[^\]]+\]:", re.MULTILINE)  # reference definition [a]: url
+# Bare URLs by scheme (GFM autolinks them, and `javascript:` must never become clickable).
+_SCHEME_RE = re.compile(
+    r"(?<![A-Za-z0-9+.-])(?:javascript|vbscript|data|file|https?|ftps?|mailto|tel|sms|blob"
+    r"|about|intent|wss?):",
+    re.IGNORECASE,
+)
+_WWW_RE = re.compile(r"(?<![A-Za-z0-9.-])www\.", re.IGNORECASE)
 _UNESCAPED_DOLLAR = re.compile(r"(?<!\\)\$")
 
 
 def markdown_errors(text: str) -> list[str]:
     """Why `text` is outside the Markdown subset; empty list when it is inside.
 
-    Allowed: paragraphs, `**bold**`, `*italic*`, `-`/`1.` lists, `` `code` ``, links-free
-    text, and inline math `$...$` (each segment must pass `latex_errors`). Not allowed:
-    raw HTML, images (use a `figure` block), `#` headings (use a `heading` block), display
+    Allowed: paragraphs, `**bold**`, `*italic*`, `-`/`1.` lists, `` `code` ``, and inline
+    math `$...$` (each segment must pass `latex_errors`). Not allowed: links of any form
+    (`[x](url)`, reference definitions `[a]: url`, bare `scheme:` or `www.` URLs), raw
+    HTML, images (use a `figure` block), `#` headings (use a `heading` block), display
     math `$$` (use a `formula` block).
     """
     errors: list[str] = []
     if _HTML_RE.search(text):
         errors.append("raw HTML is not allowed")
+    if _LINK_RE.search(text) or _LINK_DEF_RE.search(text):
+        errors.append("links are not allowed")
+    if _SCHEME_RE.search(text) or _WWW_RE.search(text):
+        errors.append("URLs are not allowed")
     if "![" in text:
         errors.append("images are not allowed (use a figure block)")
     if any(line.lstrip().startswith("#") for line in text.splitlines()):

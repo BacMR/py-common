@@ -435,3 +435,87 @@ def test_delta_from_nothing_and_guards():
         diff_manifests(manifest(2, [pitem(1)]), new)
     with pytest.raises(ValueError, match="different packs"):
         diff_manifests(manifest(1, [pitem(1)], curriculum_id=uuid.UUID(int=9)), new)
+
+
+# --- review fixes: links and HTML-emitting LaTeX (py-common#20) -----------------------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "[x](javascript:alert(1))",
+        "voir [ici] (http://x)",
+        "[a]: javascript:alert(1)",
+        "texte\n  [ref]: http://evil",
+        "javascript:alert(1)",
+        "JavaScript:alert(1)",
+        "data:text/html;base64,PHNjcmlwdD4=",
+        "voir https://evil.example",
+        "écrire à mailto:a@b.c",
+        "www.evil.example",
+        "انظر http://evil",
+    ],
+)
+def test_links_and_urls_rejected(text):
+    assert markdown_errors(text)
+    item = lesson("ar")
+    block_of(item, "paragraph")["text"] = text
+    with pytest.raises(ValidationError):
+        parse_item(item)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Remarque : $x$ est réel.",
+        "Devoir: exercice 3 p. 45.",
+        "[a, b] est un intervalle et $[0,1]$ aussi.",
+        "les ensembles $[a;b]$ (fermés)",
+        "datation: 1960",
+    ],
+)
+def test_ordinary_text_with_colons_and_brackets_allowed(text):
+    assert markdown_errors(text) == []
+
+
+HTML_LATEX = [
+    "\\class{x}{y}",
+    "\\style{color:red}{x}",
+    "\\cssId{a}{x}",
+    "\\require{action}",
+    "\\unicode{x41}",
+    "\\htmlClass{a}{x}",
+    "\\htmlId{a}{x}",
+    "\\htmlStyle{color:red}{x}",
+    "\\htmlData{foo=bar}{x}",
+    "\\newenvironment{a}{b}{c}",
+    "\\renewenvironment{a}{b}{c}",
+    "\\DeclareRobustCommand{\\a}{b}",
+    "\\expandafter\\a\\b",
+    "^^5cinput{/etc/passwd}",
+    "x^^2",
+]
+
+
+@pytest.mark.parametrize("latex", HTML_LATEX)
+def test_html_and_expansion_latex_rejected_by_models_and_schema(latex):
+    assert latex_errors(latex)
+    item = lesson()
+    block_of(item, "formula")["latex"] = latex
+    with pytest.raises(ValidationError):
+        parse_item(item)
+    assert not schema_ok(item)
+
+
+@pytest.mark.parametrize("latex", ["\\htmlClass{a}{x}", "^^5cinput{a}"])
+def test_html_latex_rejected_in_inline_math(latex):
+    assert markdown_errors(f"soit ${latex}$")
+
+
+@pytest.mark.parametrize("latex", ["\\displaystyle x^2", "\\textstyle\\frac{a}{b}", "x^{2^3}"])
+def test_similar_safe_latex_allowed(latex):
+    assert latex_errors(latex) == []
+    item = lesson()
+    block_of(item, "formula")["latex"] = latex
+    parse_item(item)
+    assert schema_ok(item)
