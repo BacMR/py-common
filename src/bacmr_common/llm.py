@@ -15,6 +15,7 @@ either importing the other's settings module.
 import asyncio
 import base64
 import json
+import logging
 import random
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -29,6 +30,32 @@ from bacmr_common.usage import estimate_tokens, gateway_body, new_call_id, recor
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 MAX_HTTP_ATTEMPTS = 5
 _BACKOFF_BASE = 1.0  # 1, 2, 4, 8 seconds (+ up to 25% jitter)
+
+# Client timeouts (BacMR/py-common#23, BacMR/docs#237). The read timeout
+# bounds how long a NON-streamed completion may take to answer, and LiteLLM
+# sends nothing until the model is done, so it is effectively the whole
+# generation. It used to be a hard 120 s: Sonnet lesson calls run 127-156 s,
+# timed out client-side, and the transport retry re-sent them, every attempt
+# billed (5x in the 2026-11-08 bake-off). 600 s fits the slowest measured
+# writer with margin; anything user-facing should pass a shorter one.
+DEFAULT_TIMEOUT_S = 600.0
+CONNECT_TIMEOUT_S = 10.0
+CHAT_PATH = "/v1/chat/completions"
+
+_log = logging.getLogger("bacmr_common.llm")
+
+
+def _timeout_kw(timeout_s: float | None) -> dict:
+    """`timeout_s` for `_post_with_backoff` only when set: subclasses and test
+    doubles in dependent repos override `_post_with_backoff` with the older
+    signature, and an unset timeout must not break them."""
+    return {} if timeout_s is None else {"timeout_s": timeout_s}
+
+
+def _timeout(seconds: float) -> httpx.Timeout:
+    """`seconds` for read/write/pool; connect stays short so a dead gateway
+    still fails (and retries) fast."""
+    return httpx.Timeout(seconds, connect=min(CONNECT_TIMEOUT_S, seconds))
 
 
 def _body_chars(body: dict) -> int:
@@ -218,19 +245,44 @@ def normalize_gateway_base_url(url: str) -> str:
 
 
 class LLMClient:
-    def __init__(self, settings: Any, transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(
+        self,
+        settings: Any,
+        transport: httpx.AsyncBaseTransport | None = None,
+        *,
+        timeout_s: float | None = None,
+        alias_timeouts: dict[str, float] | None = None,
+    ):
         # `settings`: any object with `.model_gateway_url` / `.model_gateway_key`
         # (and `.embedding_model` for `embed`) — duck-typed, no service import.
+        # Optional, also duck-typed: `.llm_timeout_s` (client default) and
+        # `.llm_alias_timeouts` ({alias: seconds}); the keyword arguments win.
         self._settings = settings
         self._service = getattr(
             settings, "usage_service", settings.__class__.__module__.split(".")[0]
         )
+        self.timeout_s = float(
+            timeout_s or getattr(settings, "llm_timeout_s", None) or DEFAULT_TIMEOUT_S
+        )
+        self.alias_timeouts: dict[str, float] = {
+            **(getattr(settings, "llm_alias_timeouts", None) or {}),
+            **(alias_timeouts or {}),
+        }
         self._http = httpx.AsyncClient(
             base_url=normalize_gateway_base_url(settings.model_gateway_url),
             transport=transport,
-            timeout=120,
+            timeout=_timeout(self.timeout_s),
             headers={"Authorization": f"Bearer {settings.model_gateway_key}"},
         )
+
+    def timeout_for(self, model: str | None, timeout_s: float | None = None) -> float:
+        """Seconds a call to `model` may take: the per-call value, else the
+        alias override, else the client default."""
+        if timeout_s:
+            return float(timeout_s)
+        if model and model in self.alias_timeouts:
+            return float(self.alias_timeouts[model])
+        return self.timeout_s
 
     async def _post_with_backoff(
         self,
@@ -238,6 +290,9 @@ class LLMClient:
         json: dict,
         max_attempts: int = MAX_HTTP_ATTEMPTS,
         backoff_schedule: tuple[float, ...] | None = None,
+        *,
+        timeout_s: float | None = None,
+        read_timeout_retries: int | None = None,
     ) -> httpx.Response:
         """POST with exponential backoff on transient failures.
 
@@ -258,9 +313,28 @@ class LLMClient:
         limit window to reset rather than falling through to a metered model.
         `None` (the default) leaves every existing caller's behavior
         byte-identical to before this parameter existed.
+
+        `timeout_s` overrides the read timeout for this call (else the alias
+        override for `json["model"]`, else the client default, see
+        `timeout_for`).
+
+        Read timeouts are NOT transient like the rest: the request reached the
+        gateway and the provider is most likely still generating (and will
+        bill) the reply we stopped waiting for, so a re-send pays twice for
+        one result. `read_timeout_retries` caps how many re-sends a
+        `httpx.ReadTimeout` gets: `None` means 0 for chat completions (paid,
+        non-idempotent generation) and the full ladder for anything else
+        (embeddings: cheap, deterministic). Every read timeout is logged
+        (`llm.read_timeout`). Connect errors, pool/connect timeouts, other
+        transport errors and 429/5xx keep the ladder as before.
         """
         if backoff_schedule:
             max_attempts = len(backoff_schedule) + 1
+        if read_timeout_retries is None:
+            read_timeout_retries = 0 if path == CHAT_PATH else max_attempts
+        model = json.get("model") if isinstance(json, dict) else None
+        seconds = self.timeout_for(model, timeout_s)
+        read_timeouts = 0
         last_exc: Exception | None = None
         call_id = new_call_id()
         for attempt in range(max_attempts):
@@ -270,7 +344,33 @@ class LLMClient:
                     json=gateway_body(
                         json, service=self._service, call_id=call_id, attempt=attempt + 1
                     ),
+                    timeout=_timeout(seconds),
                 )
+            except httpx.ReadTimeout as exc:
+                last_exc = exc
+                read_timeouts += 1
+                retry = read_timeouts <= read_timeout_retries and attempt < max_attempts - 1
+                _log.warning(
+                    "LLM call to %s timed out after %.0f s waiting for the reply "
+                    "(attempt %d, %s); the provider may still bill it",
+                    model or path,
+                    seconds,
+                    attempt + 1,
+                    "re-sending" if retry else "not re-sending",
+                    extra={
+                        "event": "llm.read_timeout",
+                        "fields": {
+                            "model": model,
+                            "path": path,
+                            "call_id": call_id,
+                            "attempt": attempt + 1,
+                            "timeout_s": seconds,
+                            "retry": retry,
+                        },
+                    },
+                )
+                if not retry:
+                    raise
             except httpx.TransportError as exc:
                 last_exc = exc
             else:
@@ -303,6 +403,8 @@ class LLMClient:
         images: list[bytes] | None = None,
         backoff_schedule: tuple[float, ...] | None = None,
         tags: CallTags | None = None,
+        *,
+        timeout_s: float | None = None,
     ) -> dict:
         content: str | list = user
         if images:
@@ -346,7 +448,10 @@ class LLMClient:
                     ],
                 }
             resp = await self._post_with_backoff(
-                "/v1/chat/completions", attempt_body, backoff_schedule=backoff_schedule
+                CHAT_PATH,
+                attempt_body,
+                backoff_schedule=backoff_schedule,
+                **_timeout_kw(timeout_s),
             )
             # content can legitimately be null (safety-filter refusals do this) —
             # coerce to "" so it fails as a normal JSONDecodeError and gets the
@@ -372,6 +477,7 @@ class LLMClient:
         *,
         max_attempts: int = MAX_HTTP_ATTEMPTS,
         backoff_schedule: tuple[float, ...] | None = None,
+        timeout_s: float | None = None,
     ) -> ToolReply:
         """One non-streamed, tool-enabled chat completion (OpenAI format; LiteLLM
         normalises every provider to it).
@@ -399,10 +505,11 @@ class LLMClient:
         if tags is not None:
             body = tags.apply_to_body(body)
         resp = await self._post_with_backoff(
-            "/v1/chat/completions",
+            CHAT_PATH,
             body,
             max_attempts=max_attempts,
             backoff_schedule=backoff_schedule,
+            **_timeout_kw(timeout_s),
         )
         payload = resp.json()
         choice = (payload.get("choices") or [{}])[0]
@@ -494,6 +601,8 @@ class LLMClient:
         model: str | None = None,
         backoff_schedule: tuple[float, ...] | None = None,
         tags: CallTags | None = None,
+        *,
+        timeout_s: float | None = None,
     ) -> list[list[float]]:
         import math
 
@@ -509,6 +618,7 @@ class LLMClient:
                 "/v1/embeddings",
                 tags.apply_to_body(req) if tags is not None else req,
                 backoff_schedule=backoff_schedule,
+                **_timeout_kw(timeout_s),
             )
             data = sorted(resp.json()["data"], key=lambda d: d["index"])
             for item in data:
@@ -522,6 +632,7 @@ class LLMClient:
 
 
 __all__ = [
+    "DEFAULT_TIMEOUT_S",
     "MAX_HTTP_ATTEMPTS",
     "RETRYABLE_STATUS",
     "LLMClient",
