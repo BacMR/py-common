@@ -10,7 +10,17 @@ with per-service virtual keys this slices spend by service, plan and purpose.
 import uuid
 from dataclasses import dataclass
 
-SERVICES = frozenset({"gateway", "tutor-api", "knowledge-api", "knowledge-worker", "scraper"})
+SERVICES = frozenset(
+    {
+        "gateway",
+        "tutor-api",
+        "knowledge-api",
+        "knowledge-worker",
+        # ready-content writer + gate worker (BacMR/py-common#21, BacMR/docs#230)
+        "knowledge-content-worker",
+        "scraper",
+    }
+)
 PLAN_TIERS = frozenset({"free", "standard", "premium", "system"})
 PURPOSES = frozenset(
     {
@@ -27,6 +37,9 @@ PURPOSES = frozenset(
         "moderation",
         # education news monitor: classify + bilingual summary (BacMR/docs#111)
         "news-classify",
+        # ready content (BacMR/py-common#21, BacMR/docs#230): writer steps / quality gate
+        "content-generate",
+        "content-gate",
     }
 )
 
@@ -51,6 +64,16 @@ TASKS = frozenset(
         "evals",
         "quiz-generation",
         "news-classification",
+        # ready content (BacMR/py-common#21, BacMR/docs#230): one bucket per generated
+        # kind, `content-gate` for judge + solver, and `content-generation` as the
+        # catch-all writer bucket knowledge's content pipeline emits today.
+        "content-outline",
+        "content-lesson",
+        "content-teacher",
+        "content-exercises",
+        "content-test-bank",
+        "content-gate",
+        "content-generation",
     }
 )
 TASK_TAG_PREFIX = "task:"
