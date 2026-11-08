@@ -51,7 +51,7 @@ def test_validation(kw):
 
 def test_enums():
     assert "knowledge-api" in SERVICES and "system" in PLAN_TIERS and "rerank" in PURPOSES
-    assert len(SERVICES) == 5 and len(PLAN_TIERS) == 4 and len(PURPOSES) == 12
+    assert len(SERVICES) == 6 and len(PLAN_TIERS) == 4 and len(PURPOSES) == 14
 
 
 def test_gateway_body_user_precedence_and_tag_order():
@@ -106,7 +106,7 @@ def test_system_accepts_task():
 
 
 def test_task_enum():
-    assert len(TASKS) == 16
+    assert len(TASKS) == 23
     assert {"ocr-vision-page", "figure-description", "translation", "evals"} <= TASKS
 
 
@@ -131,3 +131,35 @@ def test_news_classify_purpose_and_task():
     assert fields["metadata"]["tags"][3] == "news-classify"
     assert fields["metadata"]["tags"][4] == "task:news-classification"
     assert "news-classify" in PURPOSES and "news-classification" in TASKS
+
+
+CONTENT_TASKS = (
+    "content-outline",
+    "content-lesson",
+    "content-teacher",
+    "content-exercises",
+    "content-test-bank",
+    "content-gate",
+    "content-generation",
+)
+
+
+@pytest.mark.parametrize("task", CONTENT_TASKS)
+def test_content_generation_tags(task):
+    # BacMR/py-common#21: the ready-content worker's writer and gate calls are accepted.
+    purpose = "content-gate" if task == "content-gate" else "content-generate"
+    tags = CallTags.system("knowledge-content-worker", purpose, task=task)
+    fields = tags.as_request_fields()
+    assert fields["metadata"]["tags"][0] == "knowledge-content-worker"
+    assert fields["metadata"]["tags"][3] == purpose
+    assert fields["metadata"]["tags"][4] == f"task:{task}"
+
+
+def test_content_purpose_with_old_service_still_valid():
+    # knowledge's content pipeline currently labels service `knowledge-worker`.
+    CallTags.system("knowledge-worker", "content-generate", task="content-generation")
+
+
+def test_unknown_content_task_rejected():
+    with pytest.raises(ValueError, match="unknown task"):
+        CallTags.system("knowledge-content-worker", "content-generate", task="content-recap")
