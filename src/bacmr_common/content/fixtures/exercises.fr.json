@@ -84,6 +84,74 @@
       "figure_ids": [
         "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
       ]
+    },
+    {
+      "type": "exercise",
+      "lang": "fr",
+      "dir": "ltr",
+      "id": "ex-4",
+      "exercise_type": "open",
+      "stem": "Une population de bactéries compte $u_0=1000$ individus. Chaque heure, elle est multipliée par $0{,}8$ puis on ajoute $400$ individus : $u_{n+1}=0{,}8u_n+400$.",
+      "answer": "$u_1=1200$ ; $v_n=-1000\\times 0{,}8^n$ ; $u_n=2000-1000\\times 0{,}8^n$ ; la population se stabilise vers $2000$.",
+      "solution_steps": [
+        "$u_1=0{,}8\\times 1000+400=1200$.",
+        "$v_{n+1}=u_{n+1}-2000=0{,}8(u_n-2000)=0{,}8v_n$, donc $(v_n)$ est géométrique de raison $0{,}8$ et $v_0=-1000$.",
+        "$u_n=v_n+2000=2000-1000\\times 0{,}8^n$.",
+        "$0{,}8^n\\to 0$ donc $u_n\\to 2000$ : la population se stabilise vers $2000$ bactéries."
+      ],
+      "difficulty": "hard",
+      "concept_ids": [
+        "concept:suite-geometrique"
+      ],
+      "points": 5,
+      "parts": [
+        {
+          "label": "1",
+          "prompt": "Calculer $u_1$.",
+          "answer": "$u_1=1200$",
+          "solution_steps": [
+            "$u_1=0{,}8\\times 1000+400=1200$."
+          ],
+          "points": 0.5,
+          "skill": "calculate"
+        },
+        {
+          "label": "2.a",
+          "prompt": "On pose $v_n=u_n-2000$. Montrer que $(v_n)$ est géométrique.",
+          "answer": "Raison $0{,}8$, $v_0=-1000$.",
+          "solution_steps": [
+            "$v_{n+1}=0{,}8(u_n-2000)=0{,}8v_n$."
+          ],
+          "points": 1.5,
+          "skill": "prove"
+        },
+        {
+          "label": "2.b",
+          "prompt": "En déduire $u_n$ en fonction de $n$.",
+          "answer": "$u_n=2000-1000\\times 0{,}8^n$",
+          "solution_steps": [
+            "$v_n=-1000\\times 0{,}8^n$ donc $u_n=v_n+2000$."
+          ],
+          "points": 1.5,
+          "depends_on": [
+            "2.a"
+          ],
+          "skill": "deduce"
+        },
+        {
+          "label": "3",
+          "prompt": "Calculer la limite de $(u_n)$ et interpréter le résultat.",
+          "answer": "$2000$ : la population se stabilise.",
+          "solution_steps": [
+            "$0{,}8^n\\to 0$ donc $u_n\\to 2000$."
+          ],
+          "points": 1.5,
+          "depends_on": [
+            "2.b"
+          ],
+          "skill": "interpret"
+        }
+      ]
     }
   ],
   "sources": [

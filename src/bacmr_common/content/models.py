@@ -37,6 +37,18 @@ Kind = Literal[
 Audience = Literal["student", "teacher", "parent"]
 Difficulty = Literal["easy", "medium", "hard"]
 ExerciseType = Literal["mcq", "multi", "true_false", "short", "numeric", "open"]
+Skill = Literal[
+    "calculate",
+    "prove",
+    "justify",
+    "deduce",
+    "interpret",
+    "construct",
+    "study",
+    "verify",
+    "recall",
+    "other",
+]
 CalloutVariant = Literal["warning", "common_mistake", "tip", "note", "objective", "prerequisite"]
 SourceKind = Literal["textbook", "teacher_guide", "exam", "materials", "other"]
 
@@ -372,13 +384,66 @@ class BoardZone(_Block):
         return self
 
 
+PartLabel = Annotated[
+    str, Field(min_length=1, max_length=16, pattern="^[0-9A-Za-z.\u0621-\u064a]+$")
+]
+
+
+class ExercisePart(_Strict):
+    """One sub-question of a multi-part exercise (a Bac-style problem, BacMR/knowledge#331).
+
+    `label` is the printed numbering (`1.a`, `2`, `II.3`, `1.أ`). `depends_on` lists the
+    EARLIER parts whose result this one uses (1.b uses 1.a's value): a part never depends
+    on itself or on a later part. `points` is the part's share of the barème."""
+
+    label: PartLabel
+    prompt: Text
+    answer: Text
+    solution_steps: Annotated[list[Text], Field(min_length=1, max_length=40)]
+    points: Annotated[float, Field(gt=0, le=100)]
+    depends_on: Annotated[list[PartLabel], Field(max_length=12)] = []
+    skill: Skill | None = None
+
+    @model_validator(mode="after")
+    def _md(self) -> ExercisePart:
+        _check_md(self.prompt, "prompt")
+        _check_md(self.answer, "answer")
+        for i, s in enumerate(self.solution_steps):
+            _check_md(s, f"solution_steps[{i}]")
+        return self
+
+
+POINTS_TOLERANCE = 0.01
+
+
+def _parts_errors(parts: list[ExercisePart], total: float) -> list[str]:
+    errors: list[str] = []
+    seen: set[str] = set()
+    for i, part in enumerate(parts):
+        if part.label in seen:
+            errors.append(f"parts[{i}]: duplicate label {part.label!r}")
+        later = [d for d in part.depends_on if d not in seen]
+        if later:
+            errors.append(f"parts[{i}] ({part.label}): depends on {later}, not an earlier part")
+        seen.add(part.label)
+    got = sum(p.points for p in parts)
+    if abs(got - total) > POINTS_TOLERANCE:
+        errors.append(f"parts points add up to {got:g}, the exercise is worth {total:g}")
+    return errors
+
+
 class Exercise(_Block):
     """A practice or test item. `correct_choices` are 0-based indexes into `choices`.
 
     For `true_false`, choices are the two localized labels and `correct_choices` has one
     index. `answer` is the final answer in words or a value; `solution_steps` the worked
     solution. In student test banks the gateway hides `answer`, `correct_choices` and
-    `solution_steps` until the attempt is submitted (plan §4.1)."""
+    `solution_steps` until the attempt is submitted (plan §4.1).
+
+    `parts` (optional, `open` only) makes it a multi-part exercise: `stem` is the
+    situation, each part a dependent sub-question with its own answer, worked solution
+    and points (the barème; they add up to `points`). `answer` and `solution_steps`
+    still hold the whole correction, so a renderer that ignores `parts` stays correct."""
 
     type: Literal["exercise"]
     id: Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._:-]+$")]
@@ -392,6 +457,17 @@ class Exercise(_Block):
     concept_ids: Annotated[list[Annotated[str, Field(min_length=1)]], Field(max_length=20)] = []
     points: Annotated[float, Field(gt=0, le=100)]
     figure_ids: list[uuid.UUID] = []
+    parts: Annotated[list[ExercisePart], Field(min_length=2, max_length=12)] | None = None
+
+    @model_validator(mode="after")
+    def _parts(self) -> Exercise:
+        if self.parts is None:
+            return self
+        if self.exercise_type != "open":
+            raise ValueError(f"parts need exercise_type 'open', not {self.exercise_type!r}")
+        if errors := _parts_errors(self.parts, self.points):
+            raise ValueError("; ".join(errors))
+        return self
 
     @model_validator(mode="after")
     def _choices(self) -> Exercise:
