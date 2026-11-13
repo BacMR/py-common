@@ -84,6 +84,63 @@
       "figure_ids": [
         "9c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f"
       ]
+    },
+    {
+      "type": "exercise",
+      "lang": "ar",
+      "dir": "rtl",
+      "id": "ex-4",
+      "exercise_type": "open",
+      "stem": "نشحن مكثفة سعتها $C=2\\,\\mu F$ عبر ناقل أومي مقاومته $R=1\\,k\\Omega$ بمولد توتره $E=6\\,V$.",
+      "answer": "$\\tau=2\\,ms$ ؛ $u_C(\\tau)\\approx 3{,}8\\,V$ ؛ إذا ضاعفنا $R$ تتضاعف مدة الشحن.",
+      "solution_steps": [
+        "$\\tau=RC=10^3\\times 2\\times 10^{-6}=2\\times 10^{-3}\\,s$.",
+        "$u_C(\\tau)=E(1-e^{-1})\\approx 0{,}63\\times 6\\approx 3{,}8\\,V$.",
+        "$\\tau$ يتناسب مع $R$ فتتضاعف مدة الشحن."
+      ],
+      "difficulty": "medium",
+      "concept_ids": [
+        "concept:dipole-rc"
+      ],
+      "points": 4,
+      "parts": [
+        {
+          "label": "1",
+          "prompt": "احسب ثابت الزمن $\\tau$.",
+          "answer": "$\\tau=2\\,ms$",
+          "solution_steps": [
+            "$\\tau=RC=2\\times 10^{-3}\\,s$."
+          ],
+          "points": 1.5,
+          "skill": "calculate"
+        },
+        {
+          "label": "2",
+          "prompt": "استنتج قيمة $u_C$ عند اللحظة $t=\\tau$.",
+          "answer": "$u_C\\approx 3{,}8\\,V$",
+          "solution_steps": [
+            "$u_C(\\tau)=E(1-e^{-1})\\approx 3{,}8\\,V$."
+          ],
+          "points": 1.5,
+          "depends_on": [
+            "1"
+          ],
+          "skill": "deduce"
+        },
+        {
+          "label": "3",
+          "prompt": "فسر تأثير مضاعفة $R$ على مدة الشحن.",
+          "answer": "تتضاعف مدة الشحن.",
+          "solution_steps": [
+            "$\\tau$ يتناسب مع $R$."
+          ],
+          "points": 1,
+          "depends_on": [
+            "1"
+          ],
+          "skill": "interpret"
+        }
+      ]
     }
   ],
   "sources": [

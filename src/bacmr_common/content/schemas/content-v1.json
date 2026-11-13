@@ -453,7 +453,7 @@
           }
         }
       ],
-      "description": "A practice or test item. `correct_choices` are 0-based indexes into `choices`.\n\nFor `true_false`, choices are the two localized labels and `correct_choices` has one\nindex. `answer` is the final answer in words or a value; `solution_steps` the worked\nsolution. In student test banks the gateway hides `answer`, `correct_choices` and\n`solution_steps` until the attempt is submitted (plan §4.1).",
+      "description": "A practice or test item. `correct_choices` are 0-based indexes into `choices`.\n\nFor `true_false`, choices are the two localized labels and `correct_choices` has one\nindex. `answer` is the final answer in words or a value; `solution_steps` the worked\nsolution. In student test banks the gateway hides `answer`, `correct_choices` and\n`solution_steps` until the attempt is submitted (plan §4.1).\n\n`parts` (optional, `open` only) makes it a multi-part exercise: `stem` is the\nsituation, each part a dependent sub-question with its own answer, worked solution\nand points (the barème; they add up to `points`). `answer` and `solution_steps`\nstill hold the whole correction, so a renderer that ignores `parts` stays correct.",
       "properties": {
         "lang": {
           "enum": [
@@ -588,6 +588,23 @@
           },
           "title": "Figure Ids",
           "type": "array"
+        },
+        "parts": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ExercisePart"
+              },
+              "maxItems": 12,
+              "minItems": 2,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parts"
         }
       },
       "required": [
@@ -603,6 +620,93 @@
         "points"
       ],
       "title": "Exercise",
+      "type": "object"
+    },
+    "ExercisePart": {
+      "additionalProperties": false,
+      "description": "One sub-question of a multi-part exercise (a Bac-style problem, BacMR/knowledge#331).\n\n`label` is the printed numbering (`1.a`, `2`, `II.3`, `1.أ`). `depends_on` lists the\nEARLIER parts whose result this one uses (1.b uses 1.a's value): a part never depends\non itself or on a later part. `points` is the part's share of the barème.",
+      "properties": {
+        "label": {
+          "maxLength": 16,
+          "minLength": 1,
+          "pattern": "^[0-9A-Za-z.ء-ي]+$",
+          "title": "Label",
+          "type": "string"
+        },
+        "prompt": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Prompt",
+          "type": "string"
+        },
+        "answer": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Answer",
+          "type": "string"
+        },
+        "solution_steps": {
+          "items": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "minItems": 1,
+          "title": "Solution Steps",
+          "type": "array"
+        },
+        "points": {
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "title": "Points",
+          "type": "number"
+        },
+        "depends_on": {
+          "default": [],
+          "items": {
+            "maxLength": 16,
+            "minLength": 1,
+            "pattern": "^[0-9A-Za-z.ء-ي]+$",
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "skill": {
+          "anyOf": [
+            {
+              "enum": [
+                "calculate",
+                "prove",
+                "justify",
+                "deduce",
+                "interpret",
+                "construct",
+                "study",
+                "verify",
+                "recall",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Skill"
+        }
+      },
+      "required": [
+        "label",
+        "prompt",
+        "answer",
+        "solution_steps",
+        "points"
+      ],
+      "title": "ExercisePart",
       "type": "object"
     },
     "Figure": {
