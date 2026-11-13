@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "kind": "guided_practice",
+  "lang": "fr",
+  "dir": "ltr",
+  "audience": "student",
+  "title": "Le résumé de texte",
+  "task_key": "fr.bac-lit.resume",
+  "chapter_id": "ch-7cd-francais-02",
+  "blocks": [
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "heading",
+      "level": 1,
+      "text": "Le résumé de texte"
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "paragraph",
+      "text": "Lisez le texte suivant puis résumez-le."
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "exercise",
+      "id": "gp-1",
+      "exercise_type": "open",
+      "stem": "Résumez le texte proposé en une dizaine de lignes.",
+      "answer": "Le texte défend la lecture.",
+      "solution_steps": [
+        "Repérez puis reformulez."
+      ],
+      "difficulty": "medium",
+      "concept_ids": [],
+      "points": 6,
+      "rubric_ref": "rubric-1"
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "rubric",
+      "id": "rubric-1",
+      "task_key": "fr.bac-lit.resume",
+      "total": 6,
+      "criteria": [
+        {
+          "id": "c1",
+          "step": 1,
+          "label": "Repérage des idées",
+          "points": 2,
+          "expects": "Les idées principales sont identifiées",
+          "levels": [
+            {
+              "points": 2,
+              "desc": "Les idées principales sont identifiées"
+            },
+            {
+              "points": 0,
+              "desc": "-"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "step": 2,
+          "label": "Reformulation",
+          "points": 4,
+          "expects": "Les idées sont reformulées sans copie",
+          "levels": [
+            {
+              "points": 4,
+              "desc": "Les idées sont reformulées sans copie"
+            },
+            {
+              "points": 2,
+              "desc": "Reformulation"
+            },
+            {
+              "points": 0,
+              "desc": "-"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        12
+      ]
+    }
+  ]
+}

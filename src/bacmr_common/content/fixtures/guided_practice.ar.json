@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "kind": "guided_practice",
+  "lang": "ar",
+  "dir": "rtl",
+  "audience": "student",
+  "title": "المقال التحليلي",
+  "task_key": "ar.bac-lit.analytical-essay",
+  "chapter_id": "ch-7cd-arabe-03",
+  "blocks": [
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "heading",
+      "level": 1,
+      "text": "المقال التحليلي"
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "paragraph",
+      "text": "اقرأ النص الآتي ثم حلّله."
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "exercise",
+      "id": "gp-1",
+      "exercise_type": "open",
+      "stem": "حلّل النص المقترح في فقرة واحدة مبرزا فكرته الرئيسة.",
+      "answer": "يتناول النص فكرة الغربة.",
+      "solution_steps": [
+        "اذكر الفكرة ثم الشاهد."
+      ],
+      "difficulty": "medium",
+      "concept_ids": [],
+      "points": 6,
+      "rubric_ref": "rubric-1"
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "rubric",
+      "id": "rubric-1",
+      "task_key": "ar.bac-lit.analytical-essay",
+      "total": 6,
+      "criteria": [
+        {
+          "id": "c1",
+          "step": 1,
+          "label": "جودة التمهيد",
+          "points": 2,
+          "expects": "تمهيد يذكر السياق والإشكال",
+          "levels": [
+            {
+              "points": 2,
+              "desc": "تمهيد يذكر السياق والإشكال"
+            },
+            {
+              "points": 0,
+              "desc": "-"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "step": 2,
+          "label": "جودة التحليل",
+          "points": 4,
+          "expects": "تحليل مدعم بالشواهد",
+          "levels": [
+            {
+              "points": 4,
+              "desc": "تحليل مدعم بالشواهد"
+            },
+            {
+              "points": 2,
+              "desc": "جودة التحليل"
+            },
+            {
+              "points": 0,
+              "desc": "-"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "textbook",
+      "pages": [
+        12
+      ]
+    }
+  ]
+}

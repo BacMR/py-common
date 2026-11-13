@@ -32,7 +32,16 @@ SCHEMA_VERSION = 1
 Lang = Literal["ar", "fr", "en"]
 Dir = Literal["rtl", "ltr"]
 Kind = Literal[
-    "lesson", "teacher_notes", "board", "exercises", "test_bank", "recap", "parent_brief"
+    "lesson",
+    "teacher_notes",
+    "board",
+    "exercises",
+    "test_bank",
+    "recap",
+    "parent_brief",
+    "method_card",
+    "model_answer",
+    "guided_practice",
 ]
 Audience = Literal["student", "teacher", "parent"]
 Difficulty = Literal["easy", "medium", "hard"]
@@ -63,7 +72,14 @@ KIND_AUDIENCES: dict[str, frozenset[str]] = {
     "test_bank": frozenset({"student", "teacher"}),
     "recap": frozenset({"student", "teacher", "parent"}),
     "parent_brief": frozenset({"parent"}),
+    "method_card": frozenset({"student", "teacher"}),
+    "model_answer": frozenset({"student", "teacher"}),
+    "guided_practice": frozenset({"student", "teacher"}),
 }
+
+# Kinds keyed by a method task (`task_key`); every other kind has none.
+METHOD_KINDS: frozenset[str] = frozenset({"method_card", "model_answer", "guided_practice"})
+METHOD_BLOCK_TYPES: frozenset[str] = frozenset({"method_step", "rubric", "answer_segment"})
 
 
 def dir_for(lang: str) -> str:
@@ -458,6 +474,10 @@ class Exercise(_Block):
     points: Annotated[float, Field(gt=0, le=100)]
     figure_ids: list[uuid.UUID] = []
     parts: Annotated[list[ExercisePart], Field(min_length=2, max_length=12)] | None = None
+    rubric_ref: (
+        Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._:-]+$")] | None
+    ) = None
+    """Id of the `rubric` block of the same item that marks this exercise."""
 
     @model_validator(mode="after")
     def _parts(self) -> Exercise:
@@ -514,6 +534,93 @@ class Source(_Block):
     label: Line
 
 
+TaskKey = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9.-]{1,79}$")]
+
+
+class MethodStep(_Block):
+    """One step of a method card: what to write (`do`), template phrases, known pitfalls."""
+
+    type: Literal["method_step"]
+    n: Annotated[int, Field(ge=1)]
+    title: Line
+    do: Text
+    phrases: Annotated[list[Line], Field(max_length=12)] = []
+    pitfalls: Annotated[list[Line], Field(max_length=12)] = []
+    points: Annotated[float, Field(gt=0, le=100)] | None = None
+    cites: Annotated[list[Line], Field(max_length=12)] = []
+    """Labels of the annales / textbook sources that support this step."""
+
+    @model_validator(mode="after")
+    def _md(self) -> MethodStep:
+        _check_md(self.title, "title")
+        _check_md(self.do, "do")
+        for i, s in enumerate(self.phrases):
+            _check_md(s, f"phrases[{i}]")
+        for i, s in enumerate(self.pitfalls):
+            _check_md(s, f"pitfalls[{i}]")
+        return self
+
+
+class RubricLevel(_Strict):
+    points: Annotated[float, Field(ge=0)]
+    desc: Line
+
+
+class RubricCriterion(_Strict):
+    id: Annotated[str, Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9._:-]+$")]
+    step: Annotated[int, Field(ge=1)] | None = None
+    """The `method_step.n` this criterion scores, when it maps to one."""
+    label: Line
+    points: Annotated[float, Field(gt=0, le=100)]
+    expects: Text
+    levels: Annotated[list[RubricLevel], Field(max_length=10)] = []
+
+    @model_validator(mode="after")
+    def _levels(self) -> RubricCriterion:
+        _check_md(self.label, "label")
+        _check_md(self.expects, "expects")
+        for i, lv in enumerate(self.levels):
+            if lv.points > self.points:
+                raise ValueError(f"levels[{i}].points exceeds criterion points")
+            _check_md(lv.desc, f"levels[{i}].desc")
+        return self
+
+
+class Rubric(_Block):
+    """A marking scheme (barème) for one task type; criteria sum to `total`."""
+
+    type: Literal["rubric"]
+    task_key: TaskKey
+    total: Annotated[float, Field(gt=0, le=100)]
+    criteria: Annotated[list[RubricCriterion], Field(min_length=1, max_length=30)]
+
+    @model_validator(mode="after")
+    def _sum(self) -> Rubric:
+        ids = [c.id for c in self.criteria]
+        if len(ids) != len(set(ids)):
+            raise ValueError("criterion ids must be unique")
+        if abs(sum(c.points for c in self.criteria) - self.total) > 1e-6:
+            raise ValueError("criteria points must sum to total")
+        return self
+
+
+class AnswerSegment(_Block):
+    """One segment of an official correction, tied to a method step."""
+
+    type: Literal["answer_segment"]
+    step: Annotated[int, Field(ge=1)]
+    official: Text
+    """The official correction text, verbatim."""
+    note: Text
+    points: Annotated[float, Field(gt=0, le=100)] | None = None
+
+    @model_validator(mode="after")
+    def _md(self) -> AnswerSegment:
+        _check_md(self.official, "official")
+        _check_md(self.note, "note")
+        return self
+
+
 Block = Annotated[
     Heading
     | Paragraph
@@ -525,7 +632,10 @@ Block = Annotated[
     | Callout
     | BoardZone
     | Exercise
-    | Source,
+    | Source
+    | MethodStep
+    | Rubric
+    | AnswerSegment,
     Field(discriminator="type"),
 ]
 
@@ -541,6 +651,9 @@ BLOCK_TYPES: tuple[str, ...] = (
     "board_zone",
     "exercise",
     "source",
+    "method_step",
+    "rubric",
+    "answer_segment",
 )
 
 
@@ -548,6 +661,16 @@ BLOCK_TYPES: tuple[str, ...] = (
 
 
 def _kind_audience_schema(schema: dict[str, Any]) -> None:
+    def task_rule(kind: str) -> dict[str, Any]:
+        if kind in METHOD_KINDS:
+            then: dict[str, Any] = {
+                "required": ["task_key"],
+                "properties": {"task_key": {"type": "string"}},
+            }
+        else:
+            then = {"properties": {"task_key": {"type": "null"}}}
+        return {"if": {"properties": {"kind": {"const": kind}}}, "then": then}
+
     schema["allOf"] = [
         _LANG_DIR_RULE,
         *(
@@ -557,6 +680,15 @@ def _kind_audience_schema(schema: dict[str, Any]) -> None:
             }
             for kind, auds in KIND_AUDIENCES.items()
         ),
+        *(task_rule(kind) for kind in KIND_AUDIENCES),
+        {
+            "if": {"properties": {"kind": {"const": "method_card"}}},
+            "then": {"properties": {"chapter_id": {"type": "null"}}},
+        },
+        {
+            "if": {"properties": {"kind": {"const": "guided_practice"}}},
+            "then": {"required": ["chapter_id"], "properties": {"chapter_id": {"type": "string"}}},
+        },
     ]
 
 
@@ -577,6 +709,8 @@ class ContentItem(_Strict):
     audience: Audience
     title: Line
     chapter_id: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+    task_key: TaskKey | None = None
+    """Method task type (`content.method_tasks.key`); set for the method kinds only."""
     blocks: Annotated[list[Block], Field(min_length=1, max_length=2_000)]
     sources: Annotated[list[SourceRef], Field(max_length=200)] = []
 
@@ -593,6 +727,7 @@ class ContentItem(_Strict):
             raise ValueError("board needs at least one board_zone block")
         if self.kind != "board" and "board_zone" in types:
             raise ValueError("board_zone blocks belong to board items only")
+        self._method_rules(types)
         ids = [b.id for b in self.blocks if b.id is not None]
         if len(ids) != len(set(ids)):
             raise ValueError("block ids must be unique within an item")
@@ -605,6 +740,61 @@ class ContentItem(_Strict):
             if guide:
                 raise ValueError(f"{self.audience} items must not cite a teacher_guide source")
         return self
+
+    def _has_source(self, kinds: set[str]) -> bool:
+        return any(s.source_kind in kinds for s in self.sources) or any(
+            isinstance(b, Source) and b.source_kind in kinds for b in self.blocks
+        )
+
+    def _method_rules(self, types: list[str]) -> None:
+        if self.kind in METHOD_KINDS:
+            if self.task_key is None:
+                raise ValueError(f"{self.kind} needs a task_key")
+        else:
+            if self.task_key is not None:
+                raise ValueError(f"task_key belongs to method kinds only, not {self.kind}")
+            if used := METHOD_BLOCK_TYPES.intersection(types):
+                raise ValueError(f"{sorted(used)[0]} blocks belong to method kinds only")
+        if self.kind == "method_card" and self.chapter_id is not None:
+            raise ValueError("method_card is keyed by task_key and takes no chapter_id")
+        if self.kind == "guided_practice" and self.chapter_id is None:
+            raise ValueError("guided_practice needs a chapter_id")
+        steps = [b.n for b in self.blocks if isinstance(b, MethodStep)]
+        if self.kind == "method_card" and len(steps) < 2:
+            raise ValueError("method_card needs at least 2 method_step blocks")
+        if steps and sorted(steps) != list(range(1, len(steps) + 1)):
+            raise ValueError("method_step n must be unique and contiguous from 1")
+        segments = [b for b in self.blocks if isinstance(b, AnswerSegment)]
+        rubrics = [b for b in self.blocks if isinstance(b, Rubric)]
+        for r in rubrics:
+            if r.task_key != self.task_key:
+                raise ValueError("rubric task_key must match the item task_key")
+        if self.kind == "method_card" and not self._has_source({"exam", "textbook"}):
+            raise ValueError("method_card needs a source of kind exam or textbook")
+        rubric_ids = {r.id for r in rubrics if r.id is not None}
+        for b in self.blocks:
+            if not isinstance(b, Exercise):
+                continue
+            if b.rubric_ref is not None and b.rubric_ref not in rubric_ids:
+                raise ValueError(f"exercise {b.id}: rubric_ref must name a rubric block id")
+            if self.kind == "guided_practice" and b.exercise_type == "open" and not b.rubric_ref:
+                raise ValueError(f"exercise {b.id}: open exercises need a rubric_ref")
+        if self.kind == "model_answer":
+            if not segments:
+                raise ValueError("model_answer needs at least one answer_segment block")
+            if not self._has_source({"exam"}):
+                raise ValueError("model_answer needs a source of kind exam")
+        if self.kind == "guided_practice":
+            if not any(isinstance(b, Exercise) and b.exercise_type == "open" for b in self.blocks):
+                raise ValueError("guided_practice needs an open exercise")
+            if len(rubrics) != 1:
+                raise ValueError("guided_practice needs exactly one rubric")
+        if steps:
+            known = set(steps)
+            refs = [s.step for s in segments]
+            refs += [c.step for r in rubrics for c in r.criteria if c.step is not None]
+            if missing := sorted(set(refs) - known):
+                raise ValueError(f"step {missing[0]} does not match any method_step n")
 
 
 def parse_item(data: dict[str, Any] | str | bytes) -> ContentItem:

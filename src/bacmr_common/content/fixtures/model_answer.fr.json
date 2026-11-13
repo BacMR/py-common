@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "kind": "model_answer",
+  "lang": "fr",
+  "dir": "ltr",
+  "audience": "student",
+  "title": "Le résumé de texte",
+  "task_key": "fr.bac-lit.resume",
+  "blocks": [
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "heading",
+      "level": 1,
+      "text": "Le résumé de texte"
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "paragraph",
+      "text": "Résumez le texte en 60 mots."
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "method_step",
+      "n": 1,
+      "title": "Repérer les idées",
+      "do": "Relevez les idées principales du texte, paragraphe par paragraphe.",
+      "phrases": [
+        "Le texte aborde",
+        "L'auteur soutient que"
+      ],
+      "pitfalls": [
+        "Recopier des phrases entières"
+      ],
+      "points": 2,
+      "cites": [
+        "Annales Bac 2022, p. 6"
+      ]
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "answer_segment",
+      "step": 1,
+      "official": "L'auteur défend l'idée que la lecture forme l'esprit critique.",
+      "note": "Ce segment rapporte l'idée centrale en termes personnels.",
+      "points": 2
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "source",
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "exam",
+      "pages": [
+        4
+      ],
+      "label": "Annales Bac 2022, p. 6"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "exam",
+      "pages": [
+        4
+      ]
+    }
+  ]
+}

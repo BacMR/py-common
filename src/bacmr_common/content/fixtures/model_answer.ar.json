@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "kind": "model_answer",
+  "lang": "ar",
+  "dir": "rtl",
+  "audience": "student",
+  "title": "المقال التحليلي",
+  "task_key": "ar.bac-lit.analytical-essay",
+  "blocks": [
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "heading",
+      "level": 1,
+      "text": "المقال التحليلي"
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "paragraph",
+      "text": "حلّل النص تحليلا أدبيا."
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "method_step",
+      "n": 1,
+      "title": "التمهيد",
+      "do": "اكتب تمهيدا قصيرا يعرّف بصاحب النص وسياقه ثم اطرح الإشكال.",
+      "phrases": [
+        "يندرج هذا النص ضمن",
+        "يطرح النص قضية"
+      ],
+      "pitfalls": [
+        "إطالة التمهيد"
+      ],
+      "points": 2,
+      "cites": [
+        "تمهيد المقال – الامتحان الوطني 2023"
+      ]
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "answer_segment",
+      "step": 1,
+      "official": "يطرح النص قضية الغربة ويعالجها عبر صور شعرية.",
+      "note": "يمنح هذا المقطع نقاط التحليل لأنه يربط الفكرة بالشاهد.",
+      "points": 2
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "source",
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "exam",
+      "pages": [
+        4
+      ],
+      "label": "الامتحان الوطني 2023 – ص. 4"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "exam",
+      "pages": [
+        4
+      ]
+    }
+  ]
+}

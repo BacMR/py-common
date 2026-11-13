@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "kind": "method_card",
+  "lang": "fr",
+  "dir": "ltr",
+  "audience": "student",
+  "title": "Méthode du résumé",
+  "task_key": "fr.bac-lit.resume",
+  "blocks": [
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "heading",
+      "level": 1,
+      "text": "Méthode du résumé"
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "method_step",
+      "n": 1,
+      "title": "Repérer les idées",
+      "do": "Relevez les idées principales du texte, paragraphe par paragraphe.",
+      "phrases": [
+        "Le texte aborde",
+        "L'auteur soutient que"
+      ],
+      "pitfalls": [
+        "Recopier des phrases entières"
+      ],
+      "points": 2,
+      "cites": [
+        "Annales Bac 2022, p. 6"
+      ]
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "method_step",
+      "n": 2,
+      "title": "Reformuler",
+      "do": "Reformulez chaque idée avec vos propres mots en respectant la limite de mots.",
+      "phrases": [
+        "En d'autres termes"
+      ],
+      "pitfalls": [
+        "Dépasser la limite de mots"
+      ],
+      "points": 4,
+      "cites": [
+        "Corrigé officiel 2022"
+      ]
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "rubric",
+      "id": "rubric-1",
+      "task_key": "fr.bac-lit.resume",
+      "total": 6,
+      "criteria": [
+        {
+          "id": "c1",
+          "step": 1,
+          "label": "Repérage des idées",
+          "points": 2,
+          "expects": "Les idées principales sont identifiées",
+          "levels": [
+            {
+              "points": 2,
+              "desc": "Les idées principales sont identifiées"
+            },
+            {
+              "points": 0,
+              "desc": "-"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "step": 2,
+          "label": "Reformulation",
+          "points": 4,
+          "expects": "Les idées sont reformulées sans copie",
+          "levels": [
+            {
+              "points": 4,
+              "desc": "Les idées sont reformulées sans copie"
+            },
+            {
+              "points": 2,
+              "desc": "Reformulation"
+            },
+            {
+              "points": 0,
+              "desc": "-"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lang": "fr",
+      "dir": "ltr",
+      "type": "source",
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "exam",
+      "pages": [
+        4
+      ],
+      "label": "Annales Bac 2022, p. 6"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "exam",
+      "pages": [
+        4
+      ]
+    }
+  ]
+}
