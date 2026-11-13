@@ -18,7 +18,10 @@
             "exercises",
             "test_bank",
             "recap",
-            "parent_brief"
+            "parent_brief",
+            "method_card",
+            "model_answer",
+            "guided_practice"
           ],
           "title": "Kind",
           "type": "string"

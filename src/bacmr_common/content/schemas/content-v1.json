@@ -2,6 +2,115 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.bacmr.com/content-v1.json",
   "$defs": {
+    "AnswerSegment": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "description": "One segment of an official correction, tied to a method step.",
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "answer_segment",
+          "title": "Type",
+          "type": "string"
+        },
+        "step": {
+          "minimum": 1,
+          "title": "Step",
+          "type": "integer"
+        },
+        "official": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Official",
+          "type": "string"
+        },
+        "note": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        },
+        "points": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 100,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Points"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "step",
+        "official",
+        "note"
+      ],
+      "title": "AnswerSegment",
+      "type": "object"
+    },
     "BoardZone": {
       "additionalProperties": false,
       "allOf": [
@@ -899,6 +1008,148 @@
       "title": "Heading",
       "type": "object"
     },
+    "MethodStep": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "description": "One step of a method card: what to write (`do`), template phrases, known pitfalls.",
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "method_step",
+          "title": "Type",
+          "type": "string"
+        },
+        "n": {
+          "minimum": 1,
+          "title": "N",
+          "type": "integer"
+        },
+        "title": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "do": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Do",
+          "type": "string"
+        },
+        "phrases": {
+          "default": [],
+          "items": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Phrases",
+          "type": "array"
+        },
+        "pitfalls": {
+          "default": [],
+          "items": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Pitfalls",
+          "type": "array"
+        },
+        "points": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 100,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Points"
+        },
+        "cites": {
+          "default": [],
+          "items": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Cites",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "n",
+        "title",
+        "do"
+      ],
+      "title": "MethodStep",
+      "type": "object"
+    },
     "Paragraph": {
       "additionalProperties": false,
       "allOf": [
@@ -979,6 +1230,186 @@
         "text"
       ],
       "title": "Paragraph",
+      "type": "object"
+    },
+    "Rubric": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "dir": {
+                "const": "ltr"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "lang": {
+                "const": "ar"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "dir": {
+                "const": "rtl"
+              }
+            }
+          }
+        }
+      ],
+      "description": "A marking scheme (barème) for one task type; criteria sum to `total`.",
+      "properties": {
+        "lang": {
+          "enum": [
+            "ar",
+            "fr",
+            "en"
+          ],
+          "title": "Lang",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "rtl",
+            "ltr"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "type": {
+          "const": "rubric",
+          "title": "Type",
+          "type": "string"
+        },
+        "task_key": {
+          "pattern": "^[a-z0-9][a-z0-9.-]{1,79}$",
+          "title": "Task Key",
+          "type": "string"
+        },
+        "total": {
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "title": "Total",
+          "type": "number"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/RubricCriterion"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Criteria",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lang",
+        "dir",
+        "type",
+        "task_key",
+        "total",
+        "criteria"
+      ],
+      "title": "Rubric",
+      "type": "object"
+    },
+    "RubricCriterion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._:-]+$",
+          "title": "Id",
+          "type": "string"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Step"
+        },
+        "label": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "points": {
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "title": "Points",
+          "type": "number"
+        },
+        "expects": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Expects",
+          "type": "string"
+        },
+        "levels": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/RubricLevel"
+          },
+          "maxItems": 10,
+          "title": "Levels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "points",
+        "expects"
+      ],
+      "title": "RubricCriterion",
+      "type": "object"
+    },
+    "RubricLevel": {
+      "additionalProperties": false,
+      "properties": {
+        "points": {
+          "minimum": 0,
+          "title": "Points",
+          "type": "number"
+        },
+        "desc": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Desc",
+          "type": "string"
+        }
+      },
+      "required": [
+        "points",
+        "desc"
+      ],
+      "title": "RubricLevel",
       "type": "object"
     },
     "Source": {
@@ -1417,6 +1848,267 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "method_card"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "student",
+              "teacher"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "model_answer"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "student",
+              "teacher"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "guided_practice"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "audience": {
+            "enum": [
+              "student",
+              "teacher"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "lesson"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "teacher_notes"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "board"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "exercises"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "test_bank"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "recap"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "parent_brief"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "method_card"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_key"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "model_answer"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_key"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "guided_practice"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "task_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_key"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "method_card"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "chapter_id": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "guided_practice"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "chapter_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "chapter_id"
+        ]
+      }
     }
   ],
   "description": "One generated item: chapter × kind × lang × audience (one version of it).",
@@ -1434,7 +2126,10 @@
         "exercises",
         "test_bank",
         "recap",
-        "parent_brief"
+        "parent_brief",
+        "method_card",
+        "model_answer",
+        "guided_practice"
       ],
       "title": "Kind",
       "type": "string"
@@ -1485,10 +2180,24 @@
       "default": null,
       "title": "Chapter Id"
     },
+    "task_key": {
+      "anyOf": [
+        {
+          "pattern": "^[a-z0-9][a-z0-9.-]{1,79}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Task Key"
+    },
     "blocks": {
       "items": {
         "discriminator": {
           "mapping": {
+            "answer_segment": "#/$defs/AnswerSegment",
             "board_zone": "#/$defs/BoardZone",
             "callout": "#/$defs/Callout",
             "definition": "#/$defs/Definition",
@@ -1497,7 +2206,9 @@
             "figure": "#/$defs/Figure",
             "formula": "#/$defs/Formula",
             "heading": "#/$defs/Heading",
+            "method_step": "#/$defs/MethodStep",
             "paragraph": "#/$defs/Paragraph",
+            "rubric": "#/$defs/Rubric",
             "source": "#/$defs/Source",
             "table": "#/$defs/Table"
           },
@@ -1536,6 +2247,15 @@
           },
           {
             "$ref": "#/$defs/Source"
+          },
+          {
+            "$ref": "#/$defs/MethodStep"
+          },
+          {
+            "$ref": "#/$defs/Rubric"
+          },
+          {
+            "$ref": "#/$defs/AnswerSegment"
           }
         ]
       },

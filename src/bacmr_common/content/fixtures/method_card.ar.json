@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "kind": "method_card",
+  "lang": "ar",
+  "dir": "rtl",
+  "audience": "student",
+  "title": "منهجية المقال التحليلي",
+  "task_key": "ar.bac-lit.analytical-essay",
+  "blocks": [
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "heading",
+      "level": 1,
+      "text": "منهجية المقال التحليلي"
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "method_step",
+      "n": 1,
+      "title": "التمهيد",
+      "do": "اكتب تمهيدا قصيرا يعرّف بصاحب النص وسياقه ثم اطرح الإشكال.",
+      "phrases": [
+        "يندرج هذا النص ضمن",
+        "يطرح النص قضية"
+      ],
+      "pitfalls": [
+        "إطالة التمهيد"
+      ],
+      "points": 2,
+      "cites": [
+        "تمهيد المقال – الامتحان الوطني 2023"
+      ]
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "method_step",
+      "n": 2,
+      "title": "التحليل",
+      "do": "حلّل الأفكار الرئيسة مستشهدا بعبارات النص.",
+      "phrases": [
+        "يتجلى ذلك في قوله"
+      ],
+      "pitfalls": [
+        "الاكتفاء بالشرح دون استشهاد"
+      ],
+      "points": 4,
+      "cites": [
+        "نموذج التصحيح 2023"
+      ]
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "rubric",
+      "id": "rubric-1",
+      "task_key": "ar.bac-lit.analytical-essay",
+      "total": 6,
+      "criteria": [
+        {
+          "id": "c1",
+          "step": 1,
+          "label": "جودة التمهيد",
+          "points": 2,
+          "expects": "تمهيد يذكر السياق والإشكال",
+          "levels": [
+            {
+              "points": 2,
+              "desc": "تمهيد يذكر السياق والإشكال"
+            },
+            {
+              "points": 0,
+              "desc": "-"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "step": 2,
+          "label": "جودة التحليل",
+          "points": 4,
+          "expects": "تحليل مدعم بالشواهد",
+          "levels": [
+            {
+              "points": 4,
+              "desc": "تحليل مدعم بالشواهد"
+            },
+            {
+              "points": 2,
+              "desc": "جودة التحليل"
+            },
+            {
+              "points": 0,
+              "desc": "-"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "lang": "ar",
+      "dir": "rtl",
+      "type": "source",
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "exam",
+      "pages": [
+        4
+      ],
+      "label": "الامتحان الوطني 2023 – ص. 4"
+    }
+  ],
+  "sources": [
+    {
+      "document_id": "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b",
+      "source_kind": "exam",
+      "pages": [
+        4
+      ]
+    }
+  ]
+}
