@@ -34,7 +34,8 @@
       ],
       "difficulty": "medium",
       "concept_ids": [],
-      "points": 6
+      "points": 6,
+      "rubric_ref": "rubric-1"
     },
     {
       "lang": "ar",

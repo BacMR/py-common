@@ -164,7 +164,7 @@ def test_guided_practice_needs_open_exercise_and_one_rubric():
     reject(item, "exactly one rubric")
     item = fx("guided_practice")
     item["blocks"] = [b for b in item["blocks"] if b["type"] != "rubric"]
-    reject(item, "exactly one rubric")
+    reject(item, "rubric_ref must name")
 
 
 def test_rubric_task_key_must_match_item():
@@ -227,4 +227,32 @@ def test_teacher_guide_rule_unchanged():
     )
     reject(item, "teacher_guide")
     item["audience"] = "teacher"
+    parse_item(item)
+
+
+def test_open_exercise_needs_rubric_ref_in_guided_practice():
+    item = fx("guided_practice")
+    assert blocks(item, "exercise")[0]["rubric_ref"] == "rubric-1"
+    del blocks(item, "exercise")[0]["rubric_ref"]
+    reject(item, "need a rubric_ref")
+
+
+def test_rubric_ref_must_name_a_rubric_in_the_item():
+    item = fx("guided_practice")
+    blocks(item, "exercise")[0]["rubric_ref"] = "nope"
+    reject(item, "rubric_ref must name")
+    lesson = copy.deepcopy(FIXTURES["exercises.fr"])
+    blocks(lesson, "exercise")[0]["rubric_ref"] = "rubric-1"
+    reject(lesson, "rubric_ref must name")
+    del blocks(lesson, "exercise")[0]["rubric_ref"]
+    parse_item(lesson)
+
+
+def test_method_card_needs_exam_or_textbook_source():
+    item = fx("method_card")
+    item["sources"][0]["source_kind"] = "other"
+    for b in blocks(item, "source"):
+        b["source_kind"] = "other"
+    reject(item, "exam or textbook")
+    item["sources"][0]["source_kind"] = "textbook"
     parse_item(item)

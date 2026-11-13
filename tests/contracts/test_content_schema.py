@@ -519,3 +519,89 @@ def test_similar_safe_latex_allowed(latex):
     block_of(item, "formula")["latex"] = latex
     parse_item(item)
     assert schema_ok(item)
+
+
+# --- multi-part exercises (BacMR/knowledge#331) ---------------------------------------
+
+
+def multipart(lang: str = "fr") -> tuple[dict, dict]:
+    item = copy.deepcopy(FIXTURES[f"exercises.{lang}"])
+    return item, next(b for b in item["blocks"] if b.get("parts"))
+
+
+@pytest.mark.parametrize("lang", ["fr", "ar"])
+def test_fixtures_carry_a_multipart_exercise(lang):
+    item, block = multipart(lang)
+
+    parsed = parse_item(item)
+    ex = next(b for b in parsed.blocks if b.type == "exercise" and b.parts)
+    assert len(ex.parts) >= 3
+    assert any(p.depends_on for p in ex.parts)
+    assert schema_ok(item)
+
+
+def test_parts_points_are_the_bareme_of_the_exercise():
+    item, block = multipart()
+    block["points"] = 6
+
+    with pytest.raises(ValidationError, match="add up to 5"):
+        parse_item(item)
+
+
+@pytest.mark.parametrize(
+    ("index", "depends_on", "match"),
+    [(0, ["1"], "not an earlier part"), (1, ["3"], "not an earlier part"), (2, ["9"], "earlier")],
+)
+def test_a_part_depends_only_on_earlier_parts(index, depends_on, match):
+    item, block = multipart()
+    block["parts"][index]["depends_on"] = depends_on
+
+    with pytest.raises(ValidationError, match=match):
+        parse_item(item)
+
+
+def test_part_labels_are_unique():
+    item, block = multipart()
+    block["parts"][1]["label"] = "1"
+
+    with pytest.raises(ValidationError, match="duplicate label"):
+        parse_item(item)
+
+
+@pytest.mark.parametrize("etype", ["short", "numeric"])
+def test_only_open_exercises_have_parts(etype):
+    item, block = multipart()
+    block["exercise_type"] = etype
+
+    with pytest.raises(ValidationError, match="exercise_type 'open'"):
+        parse_item(item)
+
+
+@pytest.mark.parametrize(
+    "patch",
+    [{"prompt": "voir [ici](https://x.y)"}, {"skill": "guess"}, {"label": "1 a"}, {"points": 0}],
+)
+def test_bad_part_rejected(patch):
+    item, block = multipart()
+    block["parts"][0].update(patch)
+
+    with pytest.raises(ValidationError):
+        parse_item(item)
+
+
+def test_one_part_is_not_a_multipart_exercise():
+    item, block = multipart()
+    block["parts"] = block["parts"][:1]
+    block["points"] = block["parts"][0]["points"]
+
+    with pytest.raises(ValidationError):
+        parse_item(item)
+    assert not schema_ok(item)
+
+
+def test_exercises_without_parts_are_unchanged():
+    item = copy.deepcopy(FIXTURES["exercises.fr"])
+    item["blocks"] = [b for b in item["blocks"] if not b.get("parts")]
+
+    assert parse_item(item)
+    assert schema_ok(item)
