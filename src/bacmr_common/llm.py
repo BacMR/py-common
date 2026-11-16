@@ -124,6 +124,12 @@ class LLMOutputError(RuntimeError):
     """The model returned unparseable or schema-invalid JSON twice."""
 
 
+class LLMStreamError(LLMOutputError):
+    """A streamed completion failed after it started: the proxy sent an `error`
+    frame (e.g. the provider closed the connection mid-reply). The deltas already
+    yielded are an incomplete answer, never a finished one."""
+
+
 @dataclass(frozen=True)
 class ToolCall:
     """One function call the model asked for.
@@ -578,6 +584,13 @@ class LLMClient:
                         if not data or data == "[DONE]":
                             continue
                         chunk = json.loads(data)
+                        if isinstance(chunk, dict) and chunk.get("error"):
+                            # LiteLLM reports a mid-stream provider failure as an
+                            # `error` frame, not an HTTP status; it has no `choices`
+                            # and used to read as the end of a normal (short) reply.
+                            err = chunk["error"]
+                            message = err.get("message") if isinstance(err, dict) else err
+                            raise LLMStreamError(f"stream failed: {message}")
                         # Which frame carries `usage` is provider-dependent:
                         # the usage-only final frame (empty `choices`) is the
                         # documented shape, but some put it on the last
@@ -637,6 +650,7 @@ __all__ = [
     "RETRYABLE_STATUS",
     "LLMClient",
     "LLMOutputError",
+    "LLMStreamError",
     "ToolCall",
     "ToolChoice",
     "ToolReply",

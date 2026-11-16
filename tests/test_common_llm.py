@@ -247,6 +247,45 @@ async def test_chat_stream_sends_stream_true_and_model():
     assert seen["stream"] is True
 
 
+async def test_chat_stream_raises_on_a_mid_stream_error_frame():
+    """LiteLLM reports a provider failure after the first tokens (Anthropic
+    "Connection closed", BacMR/tutor live check 2026-11-16) as an `error` data
+    frame; it used to read as a normal end, and a 2-word reply was stored."""
+    from bacmr_common.llm import LLMStreamError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            content=_sse(
+                json.dumps({"choices": [{"delta": {"content": "Voici le"}}]}),
+                json.dumps(
+                    {
+                        "error": {
+                            "message": "AnthropicException - Connection closed.",
+                            "type": "None",
+                            "code": "500",
+                        }
+                    }
+                ),
+            ),
+            headers={"content-type": "text/event-stream"},
+        )
+
+    client = LLMClient(_settings(), transport=httpx.MockTransport(handler))
+    got: list[str] = []
+    with pytest.raises(LLMStreamError, match="Connection closed"):
+        async for delta in client.chat_stream("student-chat", [{"role": "user", "content": "hi"}]):
+            got.append(delta)
+    await client.close()
+    assert got == ["Voici le"]
+
+
+def test_stream_error_is_an_output_error():
+    from bacmr_common.llm import LLMOutputError, LLMStreamError
+
+    assert issubclass(LLMStreamError, LLMOutputError)
+
+
 async def test_chat_stream_raises_on_server_error():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500, content=b"boom")
