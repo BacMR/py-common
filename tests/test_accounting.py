@@ -163,3 +163,28 @@ def test_content_purpose_with_old_service_still_valid():
 def test_unknown_content_task_rejected():
     with pytest.raises(ValueError, match="unknown task"):
         CallTags.system("knowledge-content-worker", "content-generate", task="content-recap")
+
+
+def test_audience_reaches_litellm_metadata_and_headers():
+    from bacmr_common.usage import (
+        gateway_body,
+        propagated_context,
+        propagation_headers,
+        usage_context,
+    )
+
+    with usage_context(consumption="user", actor="u-1", audience="teacher"):
+        body = gateway_body({"model": "m"}, service="tutor-api", call_id="c", attempt=1)
+        headers = propagation_headers()
+    assert body["metadata"]["audience"] == "teacher"
+    assert body["metadata"]["spend_logs_metadata"]["audience"] == "teacher"
+    assert headers["X-Bacmr-Usage-audience"] == "teacher"
+    assert propagated_context(headers)["audience"] == "teacher"
+
+
+def test_audience_absent_when_not_set():
+    from bacmr_common.usage import gateway_body, usage_context
+
+    with usage_context(consumption="user", actor="u-1"):
+        body = gateway_body({"model": "m"}, service="tutor-api", call_id="c", attempt=1)
+    assert "audience" not in body["metadata"]
