@@ -29,6 +29,10 @@ _FIELDS = (
     "job_id",
     "document_id",
     "stage",
+    # Role of the verified asker (student|teacher|parent|staff), set only by an
+    # authenticated boundary. The LiteLLM AI-logs callback reads it to tell
+    # student chat apart from adult-role chat; absent = treated as student.
+    "audience",
 )
 
 # One shared definition of the char-count fallback so "4 chars ~ 1 token" is
