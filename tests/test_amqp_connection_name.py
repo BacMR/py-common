@@ -46,7 +46,10 @@ async def test_poller_dials_with_its_connection_name(monkeypatch):
     engine = create_async_engine("postgresql+asyncpg://u:p@127.0.0.1:1/x")
     p = poller_mod.OutboxPoller(engine, "content", "amqp://x/", connection_name="knowledge-outbox")
     await _dial(p._ensure_channel())
-    assert seen["kwargs"] == {"client_properties": {"connection_name": "knowledge-outbox"}}
+    assert seen["kwargs"] == {
+        "timeout": 30.0,
+        "client_properties": {"connection_name": "knowledge-outbox"},
+    }
     await engine.dispose()
 
 
@@ -54,7 +57,7 @@ async def test_poller_without_a_name_keeps_library_defaults(monkeypatch):
     seen = _capture(monkeypatch, poller_mod)
     engine = create_async_engine("postgresql+asyncpg://u:p@127.0.0.1:1/x")
     await _dial(poller_mod.OutboxPoller(engine, "content", "amqp://x/")._ensure_channel())
-    assert seen["kwargs"] == {}
+    assert seen["kwargs"] == {"timeout": 30.0}  # bounded connect, no name property
     await engine.dispose()
 
 
