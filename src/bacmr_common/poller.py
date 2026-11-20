@@ -161,21 +161,24 @@ class OutboxPoller:
         ex = await self._ensure_channel()
         published = 0
         failure: BaseException | None = None
-        async with self._engine.begin() as conn:
-            rows = await self._claim(conn)
-            deadline = time.monotonic() + self._batch_timeout
-            for r in rows:
-                if time.monotonic() >= deadline:
-                    break  # the rest stay unpublished, unlocked at commit
-                try:
-                    await self._publish(ex, r)
-                except Exception as exc:  # TimeoutError, channel/connection errors
-                    failure = exc
-                    break
-                await self._stamp(conn, r["id"])
-                published += 1
+        try:
+            async with self._engine.begin() as conn:
+                rows = await self._claim(conn)
+                deadline = time.monotonic() + self._batch_timeout
+                for r in rows:
+                    if time.monotonic() >= deadline:
+                        break  # the rest stay unpublished, unlocked at commit
+                    try:
+                        await self._publish(ex, r)
+                    except Exception as exc:  # TimeoutError, channel/connection errors
+                        failure = exc
+                        break
+                    await self._stamp(conn, r["id"])
+                    published += 1
+        finally:
+            if failure is not None:  # even when the commit itself fails
+                await self._drop_channel()
         if failure is not None:
-            await self._drop_channel()
             raise failure
         return published
 

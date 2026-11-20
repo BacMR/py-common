@@ -36,6 +36,7 @@ class FakeDB:
         self.locked: set[int] = set()
         self.open_tx = 0
         self.settings: list[dict] = []
+        self.fail_commit = False
         for _ in range(n_rows):
             self.add_row()
 
@@ -69,6 +70,10 @@ class _Tx:
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        if exc_type is None and self._db.fail_commit:
+            self._db.locked -= self._locks
+            self._db.open_tx -= 1
+            raise ConnectionResetError("connection lost on COMMIT")
         if exc_type is None:
             for rid in self._stamped:
                 self._db.rows[rid]["published_at"] = datetime.now(UTC)
@@ -239,6 +244,19 @@ async def test_publish_error_mid_batch_keeps_confirmed_rows_and_retries_the_rest
     assert db.unpublished() == []
     assert broker.channels_opened == 2, "a fresh channel replaces the broken one"
     assert [m["body"]["payload"]["n"] for m in broker.published] == [1, 2, 3]
+
+
+async def test_broken_channel_is_dropped_even_when_the_commit_fails(broker):
+    db = FakeDB(2)
+    broker.fail_after = 1
+    db.fail_commit = True
+    poller = _poller(db)
+
+    with pytest.raises(ConnectionResetError):
+        await poller.run_once()
+
+    assert broker.channels_closed == 1
+    assert db.unpublished() == [1, 2]  # row 1 goes out again: at-least-once
 
 
 async def test_batch_deadline_bounds_how_long_locks_are_held(broker):
