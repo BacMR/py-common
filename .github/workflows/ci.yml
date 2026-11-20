@@ -26,7 +26,7 @@ jobs:
     name: gate
     if: always()
     needs: [test]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim # bookkeeping only: 1 vCPU, a third of a standard minute
     timeout-minutes: 5
     steps:
       - name: Require every needed job to succeed
